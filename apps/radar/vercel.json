@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/cron/collect?slot=evening", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/enrich?slot=evening", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/collect?slot=morning", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/enrich?slot=morning", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/brief", "schedule": "0 13 * * *" }
+  ]
+}
