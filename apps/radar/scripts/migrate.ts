@@ -4,7 +4,7 @@ import path from "node:path";
 
 async function main() {
   const migrationsFolder = path.join(process.cwd(), "drizzle");
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
   if (!url) {
     if (process.env.VERCEL) {

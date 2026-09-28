@@ -15,7 +15,8 @@ export function getDb(): Promise<Db> {
 }
 
 async function connect(): Promise<Db> {
-  const url = process.env.DATABASE_URL;
+  // Neon's Vercel integration sets DATABASE_URL; older Vercel Postgres projects set POSTGRES_URL.
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (url) {
     const { neon } = await import("@neondatabase/serverless");
     const { drizzle } = await import("drizzle-orm/neon-http");
