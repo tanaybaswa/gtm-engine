@@ -32,6 +32,8 @@ afterAll(() => {
 });
 
 describe("enrich and brief", () => {
+  const ids = { origin: 0, echo: 0 };
+
   it("scores items, saves people and organizations, credits origin sources, and writes the brief", async () => {
     const { getDb } = await import("@/db");
     const { items, people, orgs, personMentions, sources, stories } = await import("@/db/schema");
@@ -81,6 +83,7 @@ describe("enrich and brief", () => {
       ])
       .returning({ id: items.id });
     const [originId, echoId, noiseId] = inserted.map((r) => r.id);
+    Object.assign(ids, { origin: originId, echo: echoId });
 
     replies.push(
       {
@@ -150,6 +153,31 @@ describe("enrich and brief", () => {
     const noise = (await db.select().from(items)).find((i) => i.id === noiseId)!;
     expect(noise.relevance).toBe(5);
     expect(noise.status).toBe("triaged");
+  });
+
+  it("leads a story with the item judged to be the origin when Claude names none", async () => {
+    const { getDb } = await import("@/db");
+    const { stories } = await import("@/db/schema");
+    const { getDefaultTopic } = await import("@/lib/topics/store");
+    const { writeBrief } = await import("./brief");
+    replies.push({
+      stories: [
+        {
+          title: "Beazley adds cover for internal AI use",
+          summary: "Beazley launched cyber endorsements for AI.",
+          whyItMatters: "Affirmative AI cover is arriving in cyber.",
+          originItemId: null,
+          itemIds: [ids.echo, ids.origin],
+          people: [],
+          orgs: [],
+        },
+      ],
+    });
+    await writeBrief((await getDefaultTopic())!, () => {});
+    const [story] = await (await getDb()).select().from(stories);
+    expect(story.originItemId).toBe(ids.origin);
+    expect(story.itemIds).toEqual([ids.origin, ids.echo]);
+    expect(story.peopleNames).toEqual([]); // only whom Claude picked
   });
 });
 

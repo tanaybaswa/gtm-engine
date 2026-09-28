@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { items, people, personMentions, stories, type Topic } from "@/db/schema";
 import { AiBudgetError, AiUnavailableError, structuredCall } from "@/lib/ai/client";
@@ -26,13 +26,25 @@ export async function writeBrief(topic: Topic, log: (m: string) => void): Promis
 
   if (!relevant.length) return { stories: 0, notes: ["No relevant items in the window, so no brief was written."] };
 
+  // People who speak, write or post in each item, described so Claude can pick the ones that
+  // matter to each story. Passing mentions are left out.
   const mentions = await db
-    .select({ itemId: personMentions.itemId, name: people.name })
+    .select({
+      itemId: personMentions.itemId,
+      name: people.name,
+      relation: personMentions.relation,
+      role: personMentions.role,
+      orgName: personMentions.orgName,
+    })
     .from(personMentions)
     .innerJoin(people, eq(people.id, personMentions.personId))
-    .where(inArray(personMentions.itemId, relevant.map((i) => i.id)));
-  const namesByItem = new Map<number, string[]>();
-  for (const m of mentions) namesByItem.set(m.itemId, [...(namesByItem.get(m.itemId) ?? []), m.name]);
+    .where(and(inArray(personMentions.itemId, relevant.map((i) => i.id)), ne(personMentions.relation, "mentioned")));
+  const peopleByItem = new Map<number, string[]>();
+  for (const m of mentions) {
+    const role = [m.role, m.orgName].filter(Boolean).join(" at ");
+    const label = `${m.name} (${m.relation}${role ? `, ${role}` : ""})`;
+    peopleByItem.set(m.itemId, [...(peopleByItem.get(m.itemId) ?? []), label]);
+  }
 
   const date = localDate();
   let result;
@@ -50,7 +62,7 @@ export async function writeBrief(topic: Topic, log: (m: string) => void): Promis
           isOrigin: i.isOrigin,
           originHint: i.originHint,
           summary: i.summary ?? i.gist,
-          people: namesByItem.get(i.id) ?? [],
+          people: peopleByItem.get(i.id) ?? [],
         })),
       ),
       schema: briefSchema,
@@ -63,12 +75,21 @@ export async function writeBrief(topic: Topic, log: (m: string) => void): Promis
     throw error;
   }
 
-  const known = new Set(relevant.map((i) => i.id));
+  const byId = new Map(relevant.map((i) => [i.id, i]));
   const rows = result.stories
     .map((story, index) => {
-      const itemIds = story.itemIds.filter((id) => known.has(id));
-      const origin = story.originItemId && known.has(story.originItemId) ? story.originItemId : null;
-      if (origin && !itemIds.includes(origin)) itemIds.unshift(origin);
+      const itemIds = story.itemIds.filter((id) => byId.has(id));
+      let origin = story.originItemId && byId.has(story.originItemId) ? story.originItemId : null;
+      // If Claude didn't name an origin but one of the story's items was judged to be the
+      // original source, lead with it.
+      origin ??=
+        itemIds
+          .map((id) => byId.get(id)!)
+          .filter((i) => i.isOrigin)
+          .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))[0]?.id ?? null;
+      if (origin) itemIds.splice(0, itemIds.length, origin, ...itemIds.filter((id) => id !== origin));
+      // Keep bare names even if Claude echoed the "(quoted, role)" label.
+      const peopleNames = [...new Set(story.people.map((p) => p.replace(/\s*\(.*\)\s*$/, "").trim()).filter(Boolean))];
       return {
         topicId: topic.id,
         briefDate: date,
@@ -78,7 +99,7 @@ export async function writeBrief(topic: Topic, log: (m: string) => void): Promis
         whyItMatters: story.whyItMatters,
         originItemId: origin,
         itemIds,
-        peopleNames: story.people.slice(0, 12),
+        peopleNames: peopleNames.slice(0, 12),
         orgNames: story.orgs.slice(0, 12),
       };
     })

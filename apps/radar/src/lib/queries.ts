@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { items, orgMentions, orgs, people, personMentions, sources, stories, type Item } from "@/db/schema";
 
@@ -83,11 +83,17 @@ export async function itemCounts(topicId: number) {
 
 export type PeopleSort = "mentions" | "recent" | "name";
 
-export async function listPeople(opts: { q?: string; sort?: PeopleSort; watchedOnly?: boolean } = {}) {
+export async function listPeople(opts: { q?: string; sort?: PeopleSort; watchedOnly?: boolean; includePassing?: boolean } = {}) {
   const db = await getDb();
   const where: SQL[] = [];
   if (opts.q) where.push(or(ilike(people.name, `%${opts.q}%`), ilike(people.orgName, `%${opts.q}%`), ilike(people.role, `%${opts.q}%`))!);
   if (opts.watchedOnly) where.push(eq(people.watched, true));
+  // By default, only people who spoke, wrote or posted somewhere; not ones merely name-checked.
+  if (!opts.includePassing) {
+    where.push(
+      sql`exists (select 1 from ${personMentions} where ${personMentions.personId} = ${people.id} and ${personMentions.relation} <> 'mentioned')`,
+    );
+  }
   const order =
     opts.sort === "recent"
       ? [desc(people.lastSeenAt)]
@@ -100,6 +106,20 @@ export async function listPeople(opts: { q?: string; sort?: PeopleSort; watchedO
     .where(where.length ? and(...where) : undefined)
     .orderBy(...order)
     .limit(300);
+}
+
+/** How each person appears across items: quoted 3, author 1, and so on. */
+export async function relationCounts(personIds: number[]): Promise<Map<number, Record<string, number>>> {
+  const out = new Map<number, Record<string, number>>();
+  if (!personIds.length) return out;
+  const db = await getDb();
+  const rows = await db
+    .select({ personId: personMentions.personId, relation: personMentions.relation, n: sql<number>`count(*)::int` })
+    .from(personMentions)
+    .where(inArray(personMentions.personId, personIds))
+    .groupBy(personMentions.personId, personMentions.relation);
+  for (const row of rows) out.set(row.personId, { ...out.get(row.personId), [row.relation]: row.n });
+  return out;
 }
 
 export async function getPerson(id: number) {
@@ -170,7 +190,14 @@ export async function risingPeople(topicId: number, days = 7, limit = 8) {
     .from(personMentions)
     .innerJoin(people, eq(people.id, personMentions.personId))
     .innerJoin(items, eq(items.id, personMentions.itemId))
-    .where(and(eq(items.topicId, topicId), gte(personMentions.createdAt, since), isNotNull(items.relevance)))
+    .where(
+      and(
+        eq(items.topicId, topicId),
+        gte(personMentions.createdAt, since),
+        isNotNull(items.relevance),
+        ne(personMentions.relation, "mentioned"),
+      ),
+    )
     .groupBy(people.id, people.name, people.role, people.orgName)
     .orderBy(desc(sql`count(*)`))
     .limit(limit);

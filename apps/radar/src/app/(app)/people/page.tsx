@@ -2,7 +2,10 @@ import Link from "next/link";
 import { toggleWatch } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
 import { Badge, Card, EmptyState, ExternalLink, PageHeader, TableWrap, Td, Th, timeAgo } from "@/components/ui";
-import { listOrgs, listPeople, type PeopleSort } from "@/lib/queries";
+import { listOrgs, listPeople, relationCounts, type PeopleSort } from "@/lib/queries";
+
+// Market voices first, then the people who write about the market.
+const RELATION_ORDER = ["quoted", "speaker", "poster", "author", "mentioned"];
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +32,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
   const q = typeof params.q === "string" ? params.q.trim() : "";
   const sort = (["mentions", "recent", "name"] as const).includes(params.sort as PeopleSort) ? (params.sort as PeopleSort) : "mentions";
   const watchedOnly = params.watched === "1";
+  const includePassing = params.passing === "1";
 
   const tab = (value: "people" | "orgs", label: string) => (
     <Link
@@ -74,19 +78,33 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
               <label className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" name="watched" value="1" defaultChecked={watchedOnly} /> Watching
               </label>
+              <label className="flex items-center gap-1.5 text-sm" title="People only name-checked in passing">
+                <input type="checkbox" name="passing" value="1" defaultChecked={includePassing} /> Passing mentions
+              </label>
             </>
           ) : null}
           <button className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Filter</button>
         </form>
       </div>
 
-      <Card>{view === "people" ? <PeopleTable q={q} sort={sort} watchedOnly={watchedOnly} /> : <OrgTable q={q} />}</Card>
+      <Card>{view === "people" ? <PeopleTable q={q} sort={sort} watchedOnly={watchedOnly} includePassing={includePassing} /> : <OrgTable q={q} />}</Card>
     </div>
   );
 }
 
-async function PeopleTable({ q, sort, watchedOnly }: { q: string; sort: PeopleSort; watchedOnly: boolean }) {
-  const rows = await listPeople({ q, sort, watchedOnly });
+async function PeopleTable({
+  q,
+  sort,
+  watchedOnly,
+  includePassing,
+}: {
+  q: string;
+  sort: PeopleSort;
+  watchedOnly: boolean;
+  includePassing: boolean;
+}) {
+  const rows = await listPeople({ q, sort, watchedOnly, includePassing });
+  const relations = await relationCounts(rows.map((p) => p.id));
   if (!rows.length) {
     return (
       <EmptyState title={q ? `No one matches "${q}".` : "No people yet."}>
@@ -101,6 +119,7 @@ async function PeopleTable({ q, sort, watchedOnly }: { q: string; sort: PeopleSo
           <Th>Name</Th>
           <Th>Role</Th>
           <Th>Organization</Th>
+          <Th>Appears as</Th>
           <Th className="text-right">Mentions</Th>
           <Th>Last seen</Th>
           <Th>Find them</Th>
@@ -122,6 +141,18 @@ async function PeopleTable({ q, sort, watchedOnly }: { q: string; sort: PeopleSo
             </Td>
             <Td className="text-zinc-600 dark:text-zinc-400">{p.role ?? ""}</Td>
             <Td className="text-zinc-600 dark:text-zinc-400">{p.orgName ?? ""}</Td>
+            <Td>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(relations.get(p.id) ?? {})
+                  .sort(([a], [b]) => RELATION_ORDER.indexOf(a) - RELATION_ORDER.indexOf(b))
+                  .map(([relation, n]) => (
+                    <Badge key={relation} tone={relation === "author" || relation === "mentioned" ? "neutral" : "indigo"}>
+                      {relation}
+                      {n > 1 ? ` ${n}` : ""}
+                    </Badge>
+                  ))}
+              </div>
+            </Td>
             <Td className="text-right tabular-nums">{p.mentionCount}</Td>
             <Td className="whitespace-nowrap text-zinc-500">{timeAgo(p.lastSeenAt)}</Td>
             <Td className="whitespace-nowrap">

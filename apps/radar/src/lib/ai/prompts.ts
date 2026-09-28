@@ -20,9 +20,9 @@ Relevance, 0 to 100:
 - 20-54: loosely related: AI used inside insurance operations (claims automation, underwriting productivity) with no liability or risk-transfer angle; general AI regulation with no insurance angle.
 - 0-19: off-topic, spam, consumer insurance quotes, or pages that are not news or commentary.
 
-Origin versus echo: isOrigin is true when the item is the primary source itself: an organization's own announcement or report, a regulator's publication, a court filing, original reporting that adds new facts, or a first-person post by someone involved. It is false when the item summarizes or reacts to something published elsewhere; then originHint names that original (publisher, document, and date when known).
+Origin versus echo: isOrigin is true when the item is the primary source itself: an organization's own announcement or report, a regulator's publication, a court filing, original reporting that adds new facts (an interview, an exclusive, a first report), or a first-person post by someone involved. It is false when the item summarizes or reacts to something published elsewhere; then originHint names that original (publisher, document, and date when known).
 
-People: include only real, named individuals who appear in the item, as author, quoted, mentioned or poster. Give role and organization only when the item states them; never guess. Skip generic bylines such as "Staff" and famous people mentioned only in passing.
+People: include only real, named individuals who appear in the item, as author, quoted, mentioned or poster. Give role and organization only when the item states them; never guess. Skip generic bylines such as "Staff", famous people mentioned only in passing, and administrative contacts (press, media relations, subscriptions, event bookings).
 
 Organizations: include insurers, reinsurers, MGAs, Lloyd's syndicates, brokers, insurtechs, AI companies, regulators, standards bodies, law firms and research groups that matter to the item. Skip the publisher unless it is itself the subject.
 
@@ -118,9 +118,10 @@ Group items about the same development into one story, and order stories by how 
 - title: 12 words or fewer.
 - summary: two or three sentences.
 - whyItMatters: one sentence.
-- originItemId: the id of the item that is the original source, or null if none of them is.
+- originItemId: the id of the item that is the original source, or null if none of them is. A story with a single item that is original reporting (an interview, exclusive or first report) uses that item.
 - itemIds: every item in the story, origin first.
-- people and orgs: the names that matter in this story.
+- people: the people who matter in this story, picked from its items' people lists, as bare names.
+- orgs: the organizations that matter in this story.
 
 At most 8 stories. Leave out weak or repetitive items rather than padding.
 

@@ -69,7 +69,7 @@ The free plan runs each job once a day and may start it anywhere within the hour
 | Piece | Cost |
 | --- | --- |
 | Vercel, Neon, Google News, feeds, Hacker News, Reddit RSS, GDELT | Free |
-| Claude (`claude-opus-5` by default) | Pay as you go. Expect roughly $15 to $45 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
+| Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
 | X API (optional) | Pay per use, $0.005 per post read. Radar stops at `X_MONTHLY_BUDGET_USD` (default $10). |
 | Serper (optional) | 2,500 free searches. Radar stops at `SERPER_MONTHLY_QUERIES` a month (default 300). |
 
@@ -114,6 +114,8 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 - **Rate limits.** GDELT and Reddit throttle shared cloud IP addresses. Both fail softly and show up in source health.
 - **Outlets with no usable feed.** Some outlets block automated feed readers (Reinsurance News) or have no feed at all (The Insurer, Insurance Insider). Google News `site:` searches cover them.
 - **Google News links.** They have to be decoded to reach the publisher, so Radar only decodes the items it reads in full.
+- **First live run** (Sep 28). Claude scored 113 items (37 relevant), read 10 articles and wrote a 4-story brief for $0.59. Fixes that came out of it: a story leads with the item judged to be the origin when Claude names none; story people are picked by Claude from people who were quoted, wrote or posted; people only name-checked in passing are hidden from the directory by default.
+- **Paywalls and roundups.** Paywalled articles (The Insurer) can't be read in full, so their people only come from the headline. Roundup articles quote big names about unrelated news, which can put them on a story.
 
 ## Next
 
