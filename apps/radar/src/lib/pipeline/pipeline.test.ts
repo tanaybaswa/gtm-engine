@@ -181,6 +181,51 @@ describe("enrich and brief", () => {
   });
 });
 
+describe("console data", () => {
+  it("packs a topic into one payload: streams, voices, stories, follow state and totals", async () => {
+    const { getDefaultTopic } = await import("@/lib/topics/store");
+    const { freshConsoleData } = await import("@/lib/console/data");
+    const topic = (await getDefaultTopic())!;
+    const data = (await freshConsoleData(topic.id))!;
+
+    const byTitle = Object.fromEntries(data.items.map((i) => [i.title, i]));
+    expect(byTitle["Beazley launches AI endorsements"].stream).toBe("companies"); // a company's own site
+    expect(byTitle["Beazley expands cyber cover for AI"].stream).toBe("news");
+    expect(byTitle['Comment on "grocery pricing"'].stream).toBe("social");
+    expect(byTitle["Beazley launches AI endorsements"].people).toEqual([{ id: expect.any(Number), name: "Jane Smith", relation: "quoted" }]);
+
+    const jane = data.people.find((p) => p.name === "Jane Smith")!;
+    expect(jane.voice).toBe(true);
+    expect(jane.relations).toEqual({ quoted: 2 });
+    expect(jane.recent).toHaveLength(2);
+
+    expect(data.stories).toHaveLength(1);
+    expect(data.briefDates).toHaveLength(1);
+    expect(data.totals).toMatchObject({ items: 3, scored: 3, relevant: 2, origins: 1 });
+    expect(data.orgs[0]).toMatchObject({ mentions: 2 });
+
+    const beazley = data.sources.find((s) => s.key === "beazley.com")!;
+    expect(beazley).toMatchObject({ items: 1, relevant: 1, origins: 1, followable: true, followed: false });
+
+    // Finished runs keep their final stats, not the live progress.
+    expect(data.runs[0].status).toBe("ok");
+    expect(data.runs[0].progress).toBeNull();
+    expect(data.daily).toHaveLength(14);
+    // Plain JSON: it goes through Next's data cache and the network unchanged.
+    expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+  });
+
+  it("summarizes every topic for the rail and reports live status", async () => {
+    const { freshTopicSummaries, liveStatus } = await import("@/lib/console/data");
+    const summaries = await freshTopicSummaries();
+    expect(summaries.topics[0]).toMatchObject({ slug: "ai-liability-insurance", items: 3, active: true });
+    expect(summaries.topics[0].spark).toHaveLength(14);
+    const status = await liveStatus();
+    expect(status.running).toEqual([]);
+    expect(status.changedAt).not.toBeNull(); // runs announce each finished stage
+  });
+});
+
 describe("prompts", () => {
   it("never contain em dashes", async () => {
     const { analystSystemPrompt, briefPrompt, extractPrompt, triagePrompt } = await import("@/lib/ai/prompts");

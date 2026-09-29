@@ -4,7 +4,7 @@ import { items, sources, type ConnectorStat, type NewItem, type Topic } from "@/
 import { connectors, type RawItem } from "@/lib/sources";
 import { compileKeywordFilter, titleKey, truncate } from "@/lib/text";
 import { canonicalizeUrl, domainOf, isHttpUrl } from "@/lib/url";
-import type { Deadline } from "./runs";
+import type { Deadline, ProgressUpdate } from "./runs";
 
 export type CollectResult = {
   connectors: Record<string, ConnectorStat>;
@@ -50,7 +50,12 @@ function toRow(topicId: number, raw: RawItem): NewItem | null {
 }
 
 /** Runs every available connector for a topic and stores new, on-topic items. */
-export async function collectTopic(topic: Topic, deadline: Deadline, log: (m: string) => void): Promise<CollectResult> {
+export async function collectTopic(
+  topic: Topic,
+  deadline: Deadline,
+  log: (m: string) => void,
+  onProgress: (p: ProgressUpdate) => void = () => {},
+): Promise<CollectResult> {
   const db = await getDb();
   const lookbackHours = topic.config.lookbackHours;
   const since = new Date(Date.now() - lookbackHours * 3_600_000);
@@ -58,6 +63,7 @@ export async function collectTopic(topic: Topic, deadline: Deadline, log: (m: st
   const stats: Record<string, ConnectorStat> = {};
   const notes: string[] = [];
 
+  let finished = 0;
   const settled = await Promise.all(
     connectors.map(async (connector) => {
       const started = Date.now();
@@ -81,6 +87,8 @@ export async function collectTopic(topic: Topic, deadline: Deadline, log: (m: st
         return [] as RawItem[];
       } finally {
         messages.forEach((m) => log(m));
+        finished += 1;
+        onProgress({ phase: "collect", done: finished, total: connectors.length, detail: connector.label });
       }
     }),
   );

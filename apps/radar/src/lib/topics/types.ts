@@ -1,22 +1,7 @@
 import { z } from "zod";
+import { SOURCE_KINDS } from "./kinds";
 
-export const SOURCE_KINDS = [
-  "publication",
-  "trade_press",
-  "blog",
-  "newsletter",
-  "podcast",
-  "regulator",
-  "law_firm",
-  "wire",
-  "company",
-  "research",
-  "community",
-  "social_account",
-  "aggregator",
-  "other",
-] as const;
-export type SourceKind = (typeof SOURCE_KINDS)[number];
+export { SOURCE_KINDS, type SourceKind } from "./kinds";
 
 export const feedSchema = z.object({
   url: z.string().url(),
@@ -64,6 +49,18 @@ export const topicConfigSchema = z.object({
       people: z.array(z.string()).default([]),
     })
     .default({ orgs: [], people: [] }),
+  // How Claude judges this topic. Empty fields fall back to the topic's defaults, or to a
+  // general-purpose rubric for topics created from scratch.
+  guide: z
+    .object({
+      // What scores high, medium and low for this topic.
+      relevance: z.string().default(""),
+      // Who reads the brief, so "why it matters" is written for them.
+      audience: z.string().default(""),
+      // Which kinds of organizations are worth extracting.
+      orgs: z.string().default(""),
+    })
+    .default({ relevance: "", audience: "", orgs: "" }),
   // How far back each collection looks. Overlap between runs is fine; items are deduplicated.
   lookbackHours: z.number().int().positive().max(24 * 30).default(36),
   // Items scoring at or above this are treated as relevant (0-100).

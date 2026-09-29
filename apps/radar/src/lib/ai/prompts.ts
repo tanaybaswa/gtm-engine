@@ -1,7 +1,51 @@
 import type { Topic } from "@/db/schema";
+import { defaultTopics } from "@/lib/topics/defaults";
+
+const GENERIC_GUIDE = {
+  relevance: [
+    "80-100: directly about the topic as described: launches, deals, decisions, data, disputes or moves by the organizations and people in it.",
+    "55-79: closely adjacent and useful: incidents, lawsuits, regulation, research or market shifts that shape the topic.",
+    "20-54: loosely related: the topic comes up in passing, or the item is general news from the wider field.",
+    "0-19: off-topic, spam, ads, job listings, or pages that are not news or commentary.",
+  ].join("\n"),
+  audience: "the team following this topic",
+  orgs: "companies, investors, regulators, standards bodies, law firms, research groups and industry associations",
+};
+
+export type TopicGuide = typeof GENERIC_GUIDE;
+
+/** What applies when a topic leaves its guide empty: its seed's guide, else a general one. */
+export function fallbackGuide(topic: Pick<Topic, "slug">): TopicGuide {
+  const seed = defaultTopics.find((t) => t.slug === topic.slug)?.config.guide;
+  return {
+    relevance: seed?.relevance || GENERIC_GUIDE.relevance,
+    audience: seed?.audience || GENERIC_GUIDE.audience,
+    orgs: seed?.orgs || GENERIC_GUIDE.orgs,
+  };
+}
+
+/** How Claude judges a topic: its own guide, else its seed's, else a general-purpose one. */
+export function topicGuide(topic: Topic): TopicGuide {
+  const own = topic.config.guide;
+  const fallback = fallbackGuide(topic);
+  return {
+    relevance: own?.relevance || fallback.relevance,
+    audience: own?.audience || fallback.audience,
+    orgs: own?.orgs || fallback.orgs,
+  };
+}
+
+const bullets = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (line.startsWith("-") ? line : `- ${line}`))
+    .join("\n");
 
 /** Shared system prompt. Stable per topic, so it is cached across calls in a run. */
 export function analystSystemPrompt(topic: Topic): string {
+  const guide = topicGuide(topic);
   const watch = topic.config.watch;
   const watchLine =
     watch.orgs.length || watch.people.length
@@ -12,19 +56,18 @@ export function analystSystemPrompt(topic: Topic): string {
 Topic: ${topic.name}
 ${topic.description}${watchLine}
 
+Readers: ${guide.audience}. When you say why something matters, say it for them.
+
 The team's goal is to find the original sources and the people behind this topic, not just the headlines.
 
 Relevance, 0 to 100:
-- 80-100: directly about insuring or transferring AI risk: AI liability products and launches, affirmative AI cover or AI exclusions, tech E&O or cyber wordings that address AI, underwriting AI systems, AI warranties and performance guarantees, capacity, pricing, claims or losses involving AI.
-- 55-79: closely adjacent and useful: AI incidents, litigation or regulation that creates liability exposure; research that quantifies AI risk; insurers' AI governance when it concerns liability or regulation; people moves at AI insurance players.
-- 20-54: loosely related: AI used inside insurance operations (claims automation, underwriting productivity) with no liability or risk-transfer angle; general AI regulation with no insurance angle.
-- 0-19: off-topic, spam, consumer insurance quotes, or pages that are not news or commentary.
+${bullets(guide.relevance)}
 
 Origin versus echo: isOrigin is true when the item is the primary source itself: an organization's own announcement or report, a regulator's publication, a court filing, original reporting that adds new facts (an interview, an exclusive, a first report), or a first-person post by someone involved. It is false when the item summarizes or reacts to something published elsewhere; then originHint names that original (publisher, document, and date when known).
 
 People: include only real, named individuals who appear in the item, as author, quoted, mentioned or poster. Give role and organization only when the item states them; never guess. Skip generic bylines such as "Staff", famous people mentioned only in passing, and administrative contacts (press, media relations, subscriptions, event bookings).
 
-Organizations: include insurers, reinsurers, MGAs, Lloyd's syndicates, brokers, insurtechs, AI companies, regulators, standards bodies, law firms and research groups that matter to the item. Skip the publisher unless it is itself the subject.
+Organizations: include ${guide.orgs} that matter to the item. Skip the publisher unless it is itself the subject.
 
 Style: plain, factual sentences. No hype. Do not use em dashes.`;
 }
@@ -71,7 +114,7 @@ export function extractPrompt(input: {
   return `Read this article and extract what the team needs.
 
 - summary: two or three sentences on what happened.
-- whyItMatters: one sentence on why it matters to a team selling into the AI liability insurance market.
+- whyItMatters: one sentence on why it matters to the readers.
 - isOrigin: whether this article is itself the primary source.
 - primarySources: the documents or announcements this article is based on (reports, filings, regulations, policy wordings, press releases, studies, court cases, statements or posts), with their URL when the article links to them. Empty if the article is itself the only source.
 - people: every named person with their role and organization as stated, how they appear, and their most useful quote (25 words or fewer) if quoted.
@@ -114,7 +157,7 @@ export function briefPrompt(date: string, items: BriefInput[]): string {
   );
   return `Write the brief for ${date} from these relevant items.
 
-Group items about the same development into one story, and order stories by how much they matter to a team selling into this market. For each story:
+Group items about the same development into one story, and order stories by how much they matter to the readers. For each story:
 - title: 12 words or fewer.
 - summary: two or three sentences.
 - whyItMatters: one sentence.

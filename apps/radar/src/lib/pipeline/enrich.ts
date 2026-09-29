@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 import { sleep } from "@/lib/http";
 import { decodeGoogleNewsUrl, fetchArticle } from "./article";
 import { creditSource, saveEntities } from "./entities";
-import type { Deadline } from "./runs";
+import type { Deadline, ProgressUpdate } from "./runs";
 
 export type EnrichResult = { triaged: number; relevant: number; extracted: number; skipped?: string; notes: string[] };
 
@@ -17,7 +17,12 @@ export type EnrichResult = { triaged: number; relevant: number; extracted: numbe
  * out people and organizations. Extraction then reads the most relevant articles in full to
  * find primary sources and quotes.
  */
-export async function enrichTopic(topic: Topic, deadline: Deadline, log: (m: string) => void): Promise<EnrichResult> {
+export async function enrichTopic(
+  topic: Topic,
+  deadline: Deadline,
+  log: (m: string) => void,
+  onProgress: (p: ProgressUpdate) => void = () => {},
+): Promise<EnrichResult> {
   const result: EnrichResult = { triaged: 0, relevant: 0, extracted: 0, notes: [] };
   try {
     await assertAiAvailable();
@@ -43,6 +48,7 @@ export async function enrichTopic(topic: Topic, deadline: Deadline, log: (m: str
 
   for (let i = 0; i < pending.length && !deadline.near(45_000); i += config.triageBatchSize) {
     const batch = pending.slice(i, i + config.triageBatchSize);
+    onProgress({ phase: "score", done: i, total: pending.length });
     try {
       const { items: scored } = await structuredCall({
         system,
@@ -105,8 +111,9 @@ export async function enrichTopic(topic: Topic, deadline: Deadline, log: (m: str
     .orderBy(desc(items.relevance), desc(items.publishedAt))
     .limit(config.maxExtractPerRun);
 
-  for (const item of toRead) {
+  for (const [index, item] of toRead.entries()) {
     if (deadline.near(35_000)) break;
+    onProgress({ phase: "read", done: index, total: toRead.length, detail: item.outlet ?? item.sourceKey });
     try {
       await extractOne(item, system);
       result.extracted += 1;
