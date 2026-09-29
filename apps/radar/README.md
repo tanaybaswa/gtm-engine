@@ -65,7 +65,7 @@ With `SERPER_API_KEY` set, Radar finds public LinkedIn posts, articles and peopl
 - **Posts and articles:** one quoted phrase per search works best, like `"AI liability"`; Radar adds `site:linkedin.com/posts`. Start a search with `site:linkedin.com/pulse` for articles. Posts older than three weeks are dropped. A post's link carries the time it was posted, so dates are exact.
 - **Hashtags:** each one is searched on LinkedIn, and on X when X is on.
 - **People searches:** phrases people put in their headline or About, like `"AI insurance"`; Radar adds `site:linkedin.com/in`.
-- **People from the news:** each run looks up a few people who were quoted, wrote or posted. A profile only counts when the name matches and their organization shows on it, so namesakes are skipped.
+- **People from the news:** each day, Radar looks up a few people who were quoted, wrote or posted. A profile only counts when the name matches and their organization shows on it, so namesakes are skipped.
 
 Posts, hashtags and Serper news searches run once a day, people searches once a week. The **LinkedIn** view has the posts on the left, with hashtag and account filters, and the people on the right: who posted, who was matched from the news, and who turned up in a people search. Click someone to see all their posts. New posts show under Signal until Claude has scored them.
 
@@ -113,7 +113,7 @@ The free plan runs each job once a day and may start it anywhere within the hour
 | Vercel, Neon, Google News, feeds, Hacker News, Reddit RSS, GDELT | Free |
 | Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
 | X API (optional) | Pay per use, $0.005 per post read. Radar stops at `X_MONTHLY_BUDGET_USD` (default $10). |
-| Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use about 450 a month. Radar stops at `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics. |
+| Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use up to about 450 a month. Radar stops at `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics, and searching pauses until the 1st; with several topics, raise it or trim searches. |
 
 The Health view shows this month's spend against each cap.
 

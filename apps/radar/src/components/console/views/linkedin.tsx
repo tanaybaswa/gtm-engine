@@ -257,6 +257,7 @@ export function LinkedInView() {
     setPane("posts");
   };
   const accountName = account ? (everyone.find((p) => p.key === account)?.name ?? `@${account}`) : null;
+  const capReached = data.spend.serper.queries >= data.spend.serper.cap;
   const nothingYet = !allPosts.length && !everyone.length;
 
   return (
@@ -267,6 +268,12 @@ export function LinkedInView() {
           <div>
             <h2 className="text-[15px] font-semibold">LinkedIn</h2>
             <p className="text-[12px] text-fg-3">Public posts and profiles that Google has found. Searched once a day; Radar never logs in to LinkedIn.</p>
+            {capReached ? (
+              <p className="mt-1 text-[12px] text-warn">
+                This month&apos;s {data.spend.serper.cap.toLocaleString()} Serper searches are used up, so searching pauses until the 1st. Raise{" "}
+                <code className="font-mono text-[11.5px]">SERPER_MONTHLY_QUERIES</code> in Vercel to keep going.
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="lg:hidden">

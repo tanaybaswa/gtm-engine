@@ -8,8 +8,10 @@ import type { Deadline } from "./runs";
 
 // Profiles change slowly, so each people search runs once a week.
 const PEOPLE_SEARCH_EVERY_MS = 6.5 * 86_400_000;
-// People Radar already knows are looked up a few at a time, and not found ones again after a month.
-const MATCHES_PER_RUN = 5;
+// People Radar already knows are looked up a few at a time, once a day, and not found ones
+// again after a month.
+const MATCHES_PER_DAY = 5;
+const MATCH_EVERY_MS = 20 * 3_600_000;
 const RECHECK_AFTER_MS = 30 * 86_400_000;
 
 export type LinkedInPeopleResult = { stat: ConnectorStat; notes: string[]; changed: boolean };
@@ -74,21 +76,23 @@ export async function findLinkedInPeople(topic: Topic, deadline: Deadline, log: 
 
     // 2. The public profiles of people Radar found speaking, writing or posting on this topic.
     const recheckBefore = new Date(Date.now() - RECHECK_AFTER_MS).toISOString();
-    const candidates = await db
-      .selectDistinct({ id: people.id, name: people.name, orgName: people.orgName, mentions: people.mentionCount })
-      .from(people)
-      .innerJoin(personMentions, eq(personMentions.personId, people.id))
-      .innerJoin(items, eq(items.id, personMentions.itemId))
-      .where(
-        and(
-          eq(items.topicId, topic.id),
-          ne(personMentions.relation, "mentioned"),
-          isNull(people.linkedinUrl),
-          or(isNull(people.linkedinCheckedAt), lt(people.linkedinCheckedAt, sql`${recheckBefore}::timestamptz`)),
-        ),
-      )
-      .orderBy(desc(people.mentionCount), asc(people.id))
-      .limit(MATCHES_PER_RUN);
+    const candidates = schedule.due("people:matching", MATCH_EVERY_MS)
+      ? await db
+          .selectDistinct({ id: people.id, name: people.name, orgName: people.orgName, mentions: people.mentionCount })
+          .from(people)
+          .innerJoin(personMentions, eq(personMentions.personId, people.id))
+          .innerJoin(items, eq(items.id, personMentions.itemId))
+          .where(
+            and(
+              eq(items.topicId, topic.id),
+              ne(personMentions.relation, "mentioned"),
+              isNull(people.linkedinUrl),
+              or(isNull(people.linkedinCheckedAt), lt(people.linkedinCheckedAt, sql`${recheckBefore}::timestamptz`)),
+            ),
+          )
+          .orderBy(desc(people.mentionCount), asc(people.id))
+          .limit(MATCHES_PER_DAY)
+      : [];
     for (const person of candidates) {
       if (deadline.near(15_000)) break;
       looked += 1;
@@ -117,6 +121,7 @@ export async function findLinkedInPeople(topic: Topic, deadline: Deadline, log: 
       }
     }
     if (looked) {
+      schedule.ran("people:matching");
       queries["Matching people from the news"] = { found: matched };
       infos.push(`matched ${matched} of ${looked} people to their LinkedIn profiles`);
     }
