@@ -70,3 +70,18 @@ export function isPublicHttpUrl(input: string | null | undefined): input is stri
   // IPv4 literals and bracketed IPv6 literals.
   return !/^\d{1,3}(\.\d{1,3}){3}$/.test(host) && !host.startsWith("[");
 }
+
+/**
+ * Where a Neon database runs, from its host name, without revealing the host:
+ * "ep-name-123-pooler.c-14.us-east-1.aws.neon.tech" -> "aws-us-east-1".
+ */
+export function neonRegion(connectionUrl: string | null | undefined): string | null {
+  if (!connectionUrl) return null;
+  try {
+    const parts = new URL(connectionUrl).hostname.split(".");
+    const cloud = parts.findIndex((p) => p === "aws" || p === "azure" || p === "gcp");
+    return cloud > 0 ? `${parts[cloud]}-${parts[cloud - 1]}` : null;
+  } catch {
+    return null;
+  }
+}

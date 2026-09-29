@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aiLiabilityInsurance } from "./topics/defaults";
 import { compileKeywordFilter, orgKey, personKey, splitOutletSuffix, stripHtml, titleKey } from "./text";
-import { canonicalizeUrl, domainOf, isPublicHttpUrl } from "./url";
+import { canonicalizeUrl, domainOf, isPublicHttpUrl, neonRegion } from "./url";
 
 describe("canonicalizeUrl", () => {
   it("drops tracking params, www, fragments and trailing slashes", () => {
@@ -78,5 +78,14 @@ describe("isPublicHttpUrl", () => {
     expect(isPublicHttpUrl("http://[::1]/feed")).toBe(false);
     expect(isPublicHttpUrl("http://intranet/feed")).toBe(false);
     expect(isPublicHttpUrl("http://db.internal/feed")).toBe(false);
+  });
+});
+
+describe("neonRegion", () => {
+  it("names the cloud and region without the host", () => {
+    expect(neonRegion("postgresql://u:p@ep-cool-name-123-pooler.c-14.us-east-1.aws.neon.tech/db?sslmode=require")).toBe("aws-us-east-1");
+    expect(neonRegion("postgresql://u:p@ep-cool-name-123.us-east-2.aws.neon.tech/db")).toBe("aws-us-east-2");
+    expect(neonRegion("postgresql://u:p@localhost:5432/db")).toBeNull();
+    expect(neonRegion(undefined)).toBeNull();
   });
 });

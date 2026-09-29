@@ -62,7 +62,7 @@ Press **New** in the rail, name the topic and describe what to track. Claude des
 - Each topic's whole console (items, stories, people, sources, runs, spend) is one payload in Next.js's data cache, so pages and topic switches rarely wait on the database.
 - Views are client-side and stay mounted, so switching takes a frame. Other topics load in the background after the first screen.
 - The browser polls a small status endpoint: every 2.5 seconds during a run, every 30 seconds otherwise. When a run step finishes or someone edits a setting, open consoles fetch fresh data.
-- `/api/health` reports database latency and regions, without signing in.
+- `/api/health` checks, without signing in, that the database answers (with latency and regions), that the console's data can be read, and how the last scheduled run went. It returns only statuses and timings.
 
 ## Run it locally
 
