@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { runs } from "@/db/schema";
+import { config } from "@/lib/config";
 import { getConsoleData, getTopicSummaries, toRunDTO } from "@/lib/console/data";
 import { neonRegion } from "@/lib/url";
 
@@ -50,19 +51,42 @@ export async function GET() {
   }
 
   let lastScheduledRun = null;
+  let lastCollection = null;
   try {
     const [run] = await db.select().from(runs).where(eq(runs.trigger, "cron")).orderBy(desc(runs.startedAt)).limit(1);
     if (run) {
       const dto = toRunDTO(run);
       lastScheduledRun = { stage: dto.stage, status: dto.status, startedAt: dto.startedAt, finishedAt: dto.finishedAt };
     }
+    // How each source did in the latest collection: "ok", "off" or "error", and how much it found.
+    const [collect] = await db
+      .select()
+      .from(runs)
+      .where(sql`${runs.stats}->'connectors' is not null`)
+      .orderBy(desc(runs.startedAt))
+      .limit(1);
+    if (collect) {
+      const dto = toRunDTO(collect);
+      lastCollection = {
+        startedAt: dto.startedAt,
+        sources: Object.fromEntries(
+          Object.entries(dto.connectors ?? {}).map(([id, stat]) => [
+            id,
+            { status: stat.skipped ? "off" : stat.error ? "error" : "ok", found: stat.fetched, new: stat.inserted },
+          ]),
+        ),
+      };
+    }
   } catch (error) {
     console.error("Health check: run lookup failed:", error);
   }
 
+  // Which optional services are switched on (never their keys).
+  const services = { claude: config.aiEnabled(), serper: Boolean(config.serperApiKey()), x: Boolean(config.xBearerToken()) };
+
   const ok = database.ok && consoleData.ok;
   return Response.json(
-    { ok, region, db: database, console: consoleData, lastScheduledRun, totalMs: Date.now() - started },
+    { ok, region, db: database, console: consoleData, services, lastScheduledRun, lastCollection, totalMs: Date.now() - started },
     { status: ok ? 200 : 503, headers },
   );
 }

@@ -27,12 +27,23 @@ export const topics = pgTable("topics", {
 
 export type RunStage = "collect" | "enrich" | "brief" | "full";
 
+/** How one search went, so Settings can show what each search finds. */
+export type QueryOutcome = {
+  found: number;
+  /** The simpler form Radar ran after the provider refused the original. */
+  ranAs?: string;
+  error?: string;
+};
+
 export type ConnectorStat = {
   fetched: number;
   inserted: number;
   skipped?: string;
   error?: string;
   ms: number;
+  queries?: Record<string, QueryOutcome>;
+  /** Something worth knowing that isn't an error, such as "searched today already". */
+  info?: string;
 };
 
 /** Where a run is right now, for the live status in the console. */
@@ -134,6 +145,9 @@ export const people = pgTable("people", {
   role: text("role"),
   orgName: text("org_name"),
   linkedinUrl: text("linkedin_url"),
+  // Headline from their public LinkedIn profile, and when Radar last looked them up.
+  linkedinHeadline: text("linkedin_headline"),
+  linkedinCheckedAt: timestamp("linkedin_checked_at", { withTimezone: true }),
   xHandle: text("x_handle"),
   mentionCount: integer("mention_count").notNull().default(0),
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
@@ -191,6 +205,28 @@ export const orgMentions = pgTable(
     uniqueIndex("org_mentions_unique_idx").on(t.itemId, t.orgId, t.relation),
     index("org_mentions_org_idx").on(t.orgId),
   ],
+);
+
+// People found by searching public LinkedIn profiles for a topic's phrases (through Google).
+export const linkedinProfiles = pgTable(
+  "linkedin_profiles",
+  {
+    id: serial("id").primaryKey(),
+    topicId: integer("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    vanity: text("vanity").notNull(), // the "jane-smith-123" in linkedin.com/in/jane-smith-123
+    url: text("url").notNull(),
+    name: text("name").notNull(),
+    headline: text("headline"),
+    company: text("company"),
+    location: text("location"),
+    about: text("about"),
+    matchedQuery: text("matched_query"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("linkedin_profiles_topic_vanity_idx").on(t.topicId, t.vanity)],
 );
 
 // Where things come from: outlets, feeds, accounts and communities.
@@ -259,3 +295,4 @@ export type Org = typeof orgs.$inferSelect;
 export type Source = typeof sources.$inferSelect;
 export type Story = typeof stories.$inferSelect;
 export type Run = typeof runs.$inferSelect;
+export type LinkedInProfile = typeof linkedinProfiles.$inferSelect;

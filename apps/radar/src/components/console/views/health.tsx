@@ -174,7 +174,10 @@ export function HealthView() {
                           {stat.error.slice(0, 160)}
                         </span>
                       ) : (
-                        <span className="text-good">OK · {(stat.ms / 1000).toFixed(1)}s</span>
+                        <>
+                          <span className="text-good">OK · {(stat.ms / 1000).toFixed(1)}s</span>
+                          {stat.info ? <span className="block text-fg-3">{stat.info}</span> : null}
+                        </>
                       )}
                     </td>
                   </tr>

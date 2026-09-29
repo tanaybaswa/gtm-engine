@@ -1,11 +1,26 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { getDb } from "@/db";
-import { items, orgMentions, orgs, people, personMentions, runs, sources, stories, topics, type Item, type Run, type Topic } from "@/db/schema";
+import {
+  items,
+  linkedinProfiles,
+  orgMentions,
+  orgs,
+  people,
+  personMentions,
+  runs,
+  sources,
+  stories,
+  topics,
+  type Item,
+  type Run,
+  type Topic,
+} from "@/db/schema";
 import { fallbackGuide } from "@/lib/ai/prompts";
 import { config, localDate, timeZone } from "@/lib/config";
 import { defaultTopics } from "@/lib/topics/defaults";
 import { getTopic, listTopics } from "@/lib/topics/store";
+import { searchResults } from "@/lib/sources/serper-client";
 import { domainOf } from "@/lib/url";
 import { getMonthUsage } from "@/lib/usage";
 import { changedAt, RADAR_TAG } from "./changes";
@@ -28,7 +43,7 @@ import {
 } from "./types";
 
 // Bump when the payload shape changes: cached payloads outlive deployments.
-const PAYLOAD_VERSION = "console-v1";
+const PAYLOAD_VERSION = "console-v3";
 // Cached payloads refresh on their own at least this often, in the background.
 const REVALIDATE_SECONDS = 900;
 const ITEM_DAYS = 30;
@@ -114,7 +129,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
   const since14 = new Date(Date.now() - 15 * 86_400_000);
   const day = sql<string>`to_char((${itemTime} at time zone ${timeZone}), 'YYYY-MM-DD')`;
 
-  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows] = await Promise.all([
+  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows, profileRows, searches] = await Promise.all([
     db
       .select({ item: items, kind: sources.kind })
       .from(items)
@@ -135,6 +150,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
         role: people.role,
         orgName: people.orgName,
         linkedinUrl: people.linkedinUrl,
+        linkedinHeadline: people.linkedinHeadline,
         xHandle: people.xHandle,
         watched: people.watched,
         lastSeenAt: people.lastSeenAt,
@@ -204,6 +220,13 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       })
       .from(items)
       .where(eq(items.topicId, topicId)),
+    db
+      .select()
+      .from(linkedinProfiles)
+      .where(eq(linkedinProfiles.topicId, topicId))
+      .orderBy(desc(linkedinProfiles.lastSeenAt), desc(linkedinProfiles.id))
+      .limit(300),
+    searchResults(topicId),
   ]);
 
   // Stories: the latest briefs.
@@ -235,6 +258,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
         role: row.role,
         orgName: row.orgName,
         linkedinUrl: row.linkedinUrl,
+        linkedinHeadline: row.linkedinHeadline,
         xHandle: row.xHandle,
         watched: row.watched,
         lastSeenAt: row.lastSeenAt.toISOString(),
@@ -385,6 +409,20 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
     briefDates,
     people: peopleDTOs,
     orgs: orgDTOs,
+    profiles: profileRows.map((p) => ({
+      id: p.id,
+      vanity: p.vanity,
+      url: p.url,
+      name: p.name,
+      headline: p.headline,
+      company: p.company,
+      location: p.location,
+      about: clip(p.about, 400),
+      matchedQuery: p.matchedQuery,
+      firstSeenAt: p.firstSeenAt.toISOString(),
+      lastSeenAt: p.lastSeenAt.toISOString(),
+    })),
+    searches,
     sources: sourceDTOs,
     runs: runRows.map((r) => toRunDTO(r)),
     spend: {

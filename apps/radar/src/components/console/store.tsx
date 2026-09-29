@@ -8,7 +8,7 @@ import type { Controller } from "./controller";
 export { VIEWS, isView, type ViewId } from "@/lib/console/views";
 
 export type Range = "24h" | "7d" | "30d" | "all";
-export type Selection = { kind: "item" | "story" | "person" | "org" | "source"; id: number };
+export type Selection = { kind: "item" | "story" | "person" | "org" | "source" | "profile"; id: number };
 export type Toast = { id: number; text: string; tone: "info" | "good" | "bad" };
 
 export type ConsoleState = {

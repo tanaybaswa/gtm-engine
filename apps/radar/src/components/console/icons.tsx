@@ -12,13 +12,44 @@ import {
   Sparkles,
   Users,
   Waves,
-  type LucideIcon,
+  type LucideProps,
 } from "lucide-react";
+import type { ComponentType } from "react";
 import type { StreamId } from "@/lib/console/types";
 import type { ViewId } from "./store";
 
+/** A plain "in" drawn in the same line style as the other icons (the icon set has no brand logos). */
+export function LinkedInIcon({ size = 24, strokeWidth = 2, className, ...rest }: LucideProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden={rest["aria-label"] ? undefined : true}
+      {...rest}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <path d="M8 11v5" />
+      <path d="M8 8v.01" />
+      <path d="M12 16v-5" />
+      <path d="M12 13.5a2.5 2.5 0 0 1 5 0V16" />
+    </svg>
+  );
+}
+
+/** Any icon the console draws: Lucide's, or the LinkedIn one above. */
+export type IconComponent = ComponentType<LucideProps>;
+
 // Streams are told apart by icon and label, never by color alone.
-export const STREAM_ICONS: Record<StreamId, LucideIcon> = {
+export const STREAM_ICONS: Record<StreamId, IconComponent> = {
+  linkedin: LinkedInIcon,
   news: Newspaper,
   trade: Briefcase,
   legal: Scale,
@@ -27,10 +58,11 @@ export const STREAM_ICONS: Record<StreamId, LucideIcon> = {
   social: MessagesSquare,
 };
 
-export const VIEW_ICONS: Record<ViewId, LucideIcon> = {
+export const VIEW_ICONS: Record<ViewId, IconComponent> = {
   panel: LayoutGrid,
   brief: Sparkles,
   stream: Waves,
+  linkedin: LinkedInIcon,
   people: Users,
   sources: Radio,
   health: Activity,
@@ -55,19 +87,6 @@ export function RadarMark({ live = false, size = 22 }: { live?: boolean; size?: 
           WebkitMaskImage: "radial-gradient(circle, black 62%, transparent 64%)",
         }}
       />
-    </span>
-  );
-}
-
-/** A plain "in" mark for LinkedIn links (the icon set has no brand logos). */
-export function LinkedInMark({ size = 14 }: { size?: number }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-flex items-center justify-center rounded-[3px] border border-current font-sans leading-none font-bold"
-      style={{ width: size, height: size, fontSize: size * 0.6 }}
-    >
-      in
     </span>
   );
 }

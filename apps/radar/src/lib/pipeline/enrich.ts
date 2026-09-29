@@ -105,7 +105,8 @@ export async function enrichTopic(
         eq(items.status, "triaged"),
         gte(items.relevance, extractFloor),
         or(isNull(items.summary), eq(items.summary, "")),
-        inArray(items.source, ["google_news", "gdelt", "rss", "serper_news", "hacker_news", "linkedin"]),
+        // LinkedIn posts are judged from what Google shows: Radar doesn't open linkedin.com.
+        inArray(items.source, ["google_news", "gdelt", "rss", "serper_news", "hacker_news"]),
       ),
     )
     .orderBy(desc(items.relevance), desc(items.publishedAt))

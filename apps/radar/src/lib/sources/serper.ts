@@ -1,16 +1,20 @@
+import type { QueryOutcome } from "@/db/schema";
 import { config } from "@/lib/config";
-import { fetchJson } from "@/lib/http";
 import { domainOf } from "@/lib/url";
-import { addUsage, getUsage } from "@/lib/usage";
+import { activityTime, hashtagQuery, linkedInQuery, parseLinkedInPost, profileUrl } from "./linkedin";
+import { searchSchedule, SerperBudgetError, serperEnabled, serperSearch, type SerperNews, type SerperSearch } from "./serper-client";
 import type { Connector, RawItem } from "./types";
 
-type SerperNews = { news?: Array<{ title: string; link: string; snippet?: string; date?: string; source?: string }> };
-type SerperSearch = { organic?: Array<{ title: string; link: string; snippet?: string; date?: string }> };
+// Each search runs at most once a day: Google takes a day or more to index LinkedIn posts,
+// and Serper's free plan is 2,500 searches in all. Less often when the monthly cap is tight.
+const SEARCH_EVERY_MS = 20 * 3_600_000;
+// Posts older than this aren't news any more, even when Google shows them.
+const MAX_POST_AGE_MS = 21 * 86_400_000;
 
 /** Serper returns dates like "3 hours ago" or "Sep 21, 2026". */
 export function parseSerperDate(value: string | undefined, now = new Date()): Date | undefined {
   if (!value) return undefined;
-  const rel = value.match(/(\d+)\s+(minute|hour|day|week|month)s?\s+ago/i);
+  const rel = value.match(/(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago/i);
   if (rel) {
     const unitMs: Record<string, number> = {
       minute: 60_000,
@@ -18,6 +22,7 @@ export function parseSerperDate(value: string | undefined, now = new Date()): Da
       day: 86_400_000,
       week: 7 * 86_400_000,
       month: 30 * 86_400_000,
+      year: 365 * 86_400_000,
     };
     return new Date(now.getTime() - Number(rel[1]) * unitMs[rel[2].toLowerCase()]);
   }
@@ -25,98 +30,117 @@ export function parseSerperDate(value: string | undefined, now = new Date()): Da
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-/** Pulls the author out of a public LinkedIn post URL and result title. */
+/** Kept for the parser tests and older callers. */
 export function parseLinkedInResult(link: string, title: string): { vanity: string | null; name: string | null; text: string } {
-  const vanity = link.match(/linkedin\.com\/posts\/([^_/?#]+)_/i)?.[1] ?? null;
-  const onLinkedIn = title.match(/^(.+?) on LinkedIn:\s*(.*)$/i);
-  if (onLinkedIn) return { vanity, name: onLinkedIn[1].trim(), text: onLinkedIn[2].trim() };
-  const parts = title.split(" | ").map((p) => p.trim());
-  if (parts.length >= 2 && /^[\p{Lu}][\p{L}'.-]+(?:\s+[\p{Lu}][\p{L}'.-]+){1,3}$/u.test(parts[1])) {
-    return { vanity, name: parts[1], text: parts[0] };
+  const post = parseLinkedInPost(link, title);
+  return { vanity: post.vanity, name: post.name, text: post.text };
+}
+
+function newsItems(data: SerperNews, key: string): RawItem[] {
+  return (data.news ?? []).map((r) => ({
+    source: "serper_news" as const,
+    url: r.link,
+    title: r.title,
+    snippet: r.snippet,
+    outlet: r.source,
+    sourceKey: domainOf(r.link) ?? r.source ?? "unknown",
+    sourceKind: "publication" as const,
+    publishedAt: parseSerperDate(r.date),
+    matchedQuery: key,
+    applyKeywordFilter: false,
+  }));
+}
+
+/** LinkedIn posts and articles from Google results. Radar never opens linkedin.com itself. */
+export function linkedInItems(data: SerperSearch, key: string, timeLimited: boolean, now = Date.now()): RawItem[] {
+  const out: RawItem[] = [];
+  for (const r of data.organic ?? []) {
+    if (!/linkedin\.com\/(posts|pulse)\//i.test(r.link)) continue;
+    const post = parseLinkedInPost(r.link, r.title, r.snippet);
+    const publishedAt = activityTime(r.link) ?? parseSerperDate(r.date);
+    if (publishedAt && now - publishedAt.getTime() > MAX_POST_AGE_MS) continue;
+    // Without a date or a time filter there's no telling whether an article is new.
+    if (!publishedAt && !timeLimited) continue;
+    const account = post.vanity ? profileUrl(post.vanity, post.org) : undefined;
+    out.push({
+      source: "linkedin",
+      url: r.link.replace(/^https?:\/\/[a-z]{2}\.linkedin\.com/i, "https://www.linkedin.com"),
+      title: post.text || r.title,
+      snippet: r.snippet,
+      author: post.name ?? undefined,
+      authorUrl: post.name ? account : undefined,
+      outlet: post.name ? `${post.name} on LinkedIn` : post.kind === "article" ? "LinkedIn article" : "LinkedIn",
+      sourceKey: post.vanity ? `linkedin:${post.vanity}` : "linkedin.com",
+      sourceHomepage: account,
+      sourceKind: "social_account",
+      publishedAt,
+      matchedQuery: key,
+      applyKeywordFilter: false,
+    });
   }
-  return { vanity, name: null, text: title };
+  return out;
 }
 
-async function query<T>(endpoint: "news" | "search", body: Record<string, unknown>): Promise<T> {
-  const res = await fetchJson<T>(`https://google.serper.dev/${endpoint}`, {
-    method: "POST",
-    headers: { "x-api-key": config.serperApiKey() ?? "", "content-type": "application/json" },
-    body: JSON.stringify(body),
-    retries: 0,
-  });
-  await addUsage("serper_queries", 1);
-  return res;
-}
-
-// Serper (free tier: 2,500 queries): Google News results with real publisher links, and
-// discovery of public LinkedIn posts through Google. Stopped at SERPER_MONTHLY_QUERIES.
+// Serper: Google News with publishers' own links, and public LinkedIn posts, articles and
+// hashtags through Google. Stopped at SERPER_MONTHLY_QUERIES searches a month.
 export const serper: Connector = {
   id: "serper_news",
-  label: "Serper (Google News + LinkedIn)",
-  unavailable: () => (config.serperApiKey() ? null : "add SERPER_API_KEY to enable"),
-  async collect({ topic, lookbackHours, log }) {
-    if (!config.serperApiKey()) return [];
-    const tbs = lookbackHours <= 24 ? "qdr:d" : lookbackHours <= 24 * 7 ? "qdr:w" : "qdr:m";
-    const { news, linkedin } = topic.config.queries.serper;
+  label: "Serper (news and LinkedIn)",
+  unavailable: () => (serperEnabled() ? null : "add SERPER_API_KEY to enable"),
+  async collect({ topic, lookbackHours, log, noteQuery = () => {}, info = () => {} }) {
+    if (!serperEnabled()) return [];
+    const { serper: searches, hashtags } = topic.config.queries;
+    const newsTbs = lookbackHours <= 24 ? "qdr:d" : lookbackHours <= 24 * 7 ? "qdr:w" : "qdr:m";
+    // Keys match the ones Settings looks up: news:<search>, posts:<search> and #<tag>.
+    const plan = [
+      ...searches.news.map((q) => ({ key: `news:${q}`, kind: "news" as const, q, tbs: newsTbs })),
+      ...searches.linkedin.map((q) => ({ key: `posts:${q}`, kind: "linkedin" as const, q: linkedInQuery(q, "posts"), tbs: "qdr:w" })),
+      ...hashtags.map((tag) => ({ key: `#${tag.replace(/^#/, "")}`, kind: "linkedin" as const, q: hashtagQuery(tag), tbs: "qdr:w" })),
+    ];
+    const schedule = await searchSchedule(topic.id);
+    const every = schedule.every(SEARCH_EVERY_MS);
+    if (every) info(`searches spread out to fit ${config.serperMonthlyQueries} a month: each runs ${every}`);
+    const due = plan.filter((p) => schedule.due(p.key, SEARCH_EVERY_MS));
+    if (plan.length && !due.length) {
+      info(`every search ran recently; each runs ${every ?? "once a day"}`);
+      return [];
+    }
+
     const out: RawItem[] = [];
-    const hasBudget = async () => (await getUsage("serper_queries")) < config.serperMonthlyQueries;
-
-    for (const q of news) {
-      if (!(await hasBudget())) {
-        log("serper: monthly query cap reached");
-        return out;
-      }
-      try {
-        const data = await query<SerperNews>("news", { q, tbs, num: 20, gl: "us", hl: "en" });
-        for (const r of data.news ?? []) {
-          out.push({
-            source: "serper_news",
-            url: r.link,
-            title: r.title,
-            snippet: r.snippet,
-            outlet: r.source,
-            sourceKey: domainOf(r.link) ?? r.source ?? "unknown",
-            sourceKind: "publication",
-            publishedAt: parseSerperDate(r.date),
-            matchedQuery: q,
-            applyKeywordFilter: false,
-          });
+    try {
+      for (const p of due) {
+        let outcome: QueryOutcome;
+        try {
+          const result =
+            p.kind === "news"
+              ? await serperSearch<SerperNews>("news", p.q, { tbs: p.tbs })
+              : await serperSearch<SerperSearch>("search", p.q, { tbs: p.tbs });
+          schedule.ran(p.key);
+          if (!result) {
+            outcome = { found: 0, error: "Serper's free plan refused this search, even in simpler forms" };
+          } else {
+            const found =
+              p.kind === "news"
+                ? newsItems(result.data as SerperNews, p.key)
+                : linkedInItems(result.data as SerperSearch, p.key, result.timeLimited);
+            out.push(...found);
+            outcome = { found: found.length, ...(result.ranAs ? { ranAs: result.ranAs } : {}) };
+          }
+        } catch (error) {
+          if (error instanceof SerperBudgetError) {
+            log(error.message);
+            break;
+          }
+          outcome = { found: 0, error: (error as Error).message.slice(0, 200) };
+          log(`serper "${p.key}": ${(error as Error).message}`);
         }
-      } catch (error) {
-        log(`serper news "${q}": ${(error as Error).message}`);
+        schedule.note(p.key, outcome);
+        noteQuery(p.key, outcome);
       }
+    } finally {
+      await schedule.save();
     }
-
-    for (const q of linkedin) {
-      if (!(await hasBudget())) {
-        log("serper: monthly query cap reached");
-        return out;
-      }
-      try {
-        const data = await query<SerperSearch>("search", { q, tbs, num: 20, gl: "us", hl: "en" });
-        for (const r of data.organic ?? []) {
-          if (!/linkedin\.com\/(posts|pulse|feed)\//i.test(r.link)) continue;
-          const post = parseLinkedInResult(r.link, r.title);
-          out.push({
-            source: "linkedin",
-            url: r.link,
-            title: post.text || r.title,
-            snippet: r.snippet,
-            author: post.name ?? post.vanity ?? undefined,
-            authorUrl: post.vanity ? `https://www.linkedin.com/in/${post.vanity}` : undefined,
-            outlet: post.name ? `${post.name} on LinkedIn` : "LinkedIn",
-            sourceKey: post.vanity ? `linkedin:${post.vanity.toLowerCase()}` : "linkedin.com",
-            sourceHomepage: post.vanity ? `https://www.linkedin.com/in/${post.vanity}` : undefined,
-            sourceKind: "social_account",
-            publishedAt: parseSerperDate(r.date),
-            matchedQuery: q,
-            applyKeywordFilter: false,
-          });
-        }
-      } catch (error) {
-        log(`serper linkedin "${q}": ${(error as Error).message}`);
-      }
-    }
+    if (due.length < plan.length) info(`${plan.length - due.length} searches ran recently and wait for their turn`);
     return out;
   },
 };

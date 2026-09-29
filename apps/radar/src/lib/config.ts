@@ -20,9 +20,11 @@ export const config = {
   xBearerToken: () => process.env.X_BEARER_TOKEN,
   xMonthlyBudgetUsd: intEnv("X_MONTHLY_BUDGET_USD", 10),
 
-  // Serper (Google News results with publisher links, and LinkedIn discovery). Free tier: 2,500 queries.
+  // Serper (Google News with publisher links, and LinkedIn posts, hashtags and people through
+  // Google). Free plan: 2,500 searches. Each search runs at most once a day, so one topic uses
+  // up to about 450 a month; with more topics, searches are spaced out to fit the cap.
   serperApiKey: () => process.env.SERPER_API_KEY,
-  serperMonthlyQueries: intEnv("SERPER_MONTHLY_QUERIES", 300),
+  serperMonthlyQueries: intEnv("SERPER_MONTHLY_QUERIES", 500),
 
   // Scheduled runs on Vercel send "Authorization: Bearer <CRON_SECRET>".
   cronSecret: () => process.env.CRON_SECRET,

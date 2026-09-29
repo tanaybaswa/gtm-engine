@@ -4,7 +4,7 @@ import { AtSign, Star, Users } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import type { OrgDTO, PersonDTO } from "@/lib/console/types";
 import { KIND_LABELS, linkedinSearch, matches, RELATION_LABELS, RELATION_ORDER } from "../format";
-import { LinkedInMark } from "../icons";
+import { LinkedInIcon } from "../icons";
 import { useConsole, useCtl, useStore, useTopicData } from "../store";
 import { Badge, Empty, Segmented, Skeleton, TimeAgo, Toggle } from "../ui";
 
@@ -104,7 +104,7 @@ function PeopleTable({ people }: { people: PersonDTO[] }) {
                   aria-label={`Find ${p.name} on LinkedIn`}
                   title="Find on LinkedIn"
                 >
-                  <LinkedInMark />
+                  <LinkedInIcon size={14} />
                 </a>
                 {p.xHandle ? (
                   <a

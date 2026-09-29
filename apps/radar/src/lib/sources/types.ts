@@ -1,4 +1,4 @@
-import type { Topic } from "@/db/schema";
+import type { QueryOutcome, Topic } from "@/db/schema";
 import type { SourceKind } from "@/lib/topics/types";
 
 export type SourceId =
@@ -38,7 +38,12 @@ export type CollectContext = {
   topic: Topic;
   since: Date;
   lookbackHours: number;
+  /** Problems worth showing in source health. */
   log: (message: string) => void;
+  /** How one search went, keyed by the search as the topic's settings have it. */
+  noteQuery?: (key: string, outcome: QueryOutcome) => void;
+  /** Something worth knowing that isn't a problem. */
+  info?: (message: string) => void;
 };
 
 export type Connector = {
