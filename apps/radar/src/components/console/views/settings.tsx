@@ -1,9 +1,8 @@
 "use client";
 
 import { Archive, ArchiveRestore, Braces, Plus, RotateCcw, Trash2, X } from "lucide-react";
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { QueryOutcome } from "@/db/schema";
-import type { RunDTO, TopicDTO } from "@/lib/console/types";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import type { SearchResultDTO, TopicDTO } from "@/lib/console/types";
 import { SOURCE_KINDS } from "@/lib/topics/kinds";
 import type { FeedConfig, TopicConfig } from "@/lib/topics/types";
 import { KIND_LABELS } from "../format";
@@ -207,31 +206,15 @@ function FeedsEditor({ feeds, onChange }: { feeds: FeedConfig[]; onChange: (v: F
   );
 }
 
-type Outcome = { outcome: QueryOutcome; at: string };
-
-/** The latest result of each search, from recent runs (searches run once a day, so look back). */
-function searchOutcomes(runs: RunDTO[]): Map<string, Outcome> {
-  const out = new Map<string, Outcome>();
-  for (const run of runs) {
-    for (const stat of Object.values(run.connectors ?? {})) {
-      for (const [key, outcome] of Object.entries(stat.queries ?? {})) {
-        if (!out.has(key)) out.set(key, { outcome, at: run.startedAt });
-      }
-    }
-  }
-  return out;
-}
-
-function OutcomeLine({ result }: { result: Outcome | undefined }) {
+function OutcomeLine({ result }: { result: SearchResultDTO | undefined }) {
   if (!result) return <span className="text-fg-3">Not run yet. It runs with the next collection.</span>;
-  const { outcome, at } = result;
-  if (outcome.error) return <span className="text-bad">{outcome.error}</span>;
+  if (result.error) return <span className="text-bad">{result.error}</span>;
   return (
     <span className="text-fg-3">
-      <span className="text-fg-2">{outcome.found} found</span> <TimeAgo iso={at} />
-      {outcome.ranAs ? (
+      <span className="text-fg-2">{result.found} found</span> <TimeAgo iso={result.at} />
+      {result.ranAs ? (
         <span className="block text-warn">
-          Serper&apos;s free plan refused the full search, so this ran: <code className="font-mono">{outcome.ranAs}</code>
+          Serper&apos;s free plan refused the full search, so this ran: <code className="font-mono">{result.ranAs}</code>
         </span>
       ) : null}
     </span>
@@ -253,10 +236,10 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
   const setConfig = (fn: (c: TopicConfig) => TopicConfig) => setDraft((d) => ({ ...d, config: fn(structuredClone(d.config)) }));
   const q = c.queries;
   const data = useTopicData();
-  const runs = data?.runs;
   const serperOn = data?.spend.serper.enabled ?? false;
-  const outcomes = useMemo(() => searchOutcomes(runs ?? []), [runs]);
-  const outcome = (key: string) => <OutcomeLine result={outcomes.get(key)} />;
+  const searches = data?.searches;
+  // Each search's latest result: news:<search>, posts:<search>, #<tag> and people:<search>.
+  const outcome = (prefix: string) => (serperOn ? (value: string) => <OutcomeLine result={searches?.[`${prefix}${value}`]} /> : undefined);
 
   const save = async () => {
     setSaving(true);
@@ -367,7 +350,7 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
               <LinesEditor
                 values={q.serper.news}
                 placeholder="plain search"
-                status={serperOn ? outcome : undefined}
+                status={outcome("news:")}
                 onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, news: v } } }))}
               />
             </Field>
@@ -378,14 +361,14 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
       <Panel title="LinkedIn" meta={serperOn ? "Through Google, with Serper. Radar never logs in to LinkedIn." : "Off until SERPER_API_KEY is set"}>
         <div className="space-y-5">
           <p className="text-[12.5px] leading-relaxed text-fg-3">
-            Posts and hashtags are searched once a day, people once a week. Serper&apos;s free plan refuses some complex searches; Radar then runs a
-            simpler form and says so under the search.
+            Posts and hashtags are searched up to once a day, people up to once a week; less often when needed to stay within the monthly Serper cap.
+            Serper&apos;s free plan refuses some complex searches; Radar then runs a simpler form and says so under the search.
           </p>
           <Field label="Posts and articles" hint='One quoted phrase each works best, like "AI liability". Radar adds site:linkedin.com/posts; start with site:linkedin.com/pulse for articles.'>
             <LinesEditor
               values={q.serper.linkedin}
               placeholder='"phrase people write in posts"'
-              status={serperOn ? outcome : undefined}
+              status={outcome("posts:")}
               onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, linkedin: v } } }))}
             />
           </Field>
@@ -395,11 +378,11 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
               placeholder="AIinsurance, then Enter"
               normalize={(v) => v.replace(/^#/, "").replace(/\s+/g, "")}
               badge={(tag) => {
-                const result = outcomes.get(`#${tag}`);
+                const result = searches?.[`#${tag}`];
                 if (!serperOn || !result) return null;
                 return (
-                  <span className={`font-mono text-[10.5px] ${result.outcome.error ? "text-bad" : "text-fg-3"}`} title={result.outcome.error ?? `${result.outcome.found} found`}>
-                    {result.outcome.error ? "!" : result.outcome.found}
+                  <span className={`font-mono text-[10.5px] ${result.error ? "text-bad" : "text-fg-3"}`} title={result.error ?? `${result.found} found`}>
+                    {result.error ? "!" : result.found}
                   </span>
                 );
               }}
@@ -410,7 +393,7 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
             <LinesEditor
               values={q.serper.profiles}
               placeholder='"phrase in their headline"'
-              status={serperOn ? outcome : undefined}
+              status={outcome("people:")}
               onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, profiles: v } } }))}
             />
           </Field>

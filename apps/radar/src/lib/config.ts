@@ -22,7 +22,7 @@ export const config = {
 
   // Serper (Google News with publisher links, and LinkedIn posts, hashtags and people through
   // Google). Free plan: 2,500 searches. Each search runs at most once a day, so one topic uses
-  // about 450 a month.
+  // up to about 450 a month; with more topics, searches are spaced out to fit the cap.
   serperApiKey: () => process.env.SERPER_API_KEY,
   serperMonthlyQueries: intEnv("SERPER_MONTHLY_QUERIES", 500),
 

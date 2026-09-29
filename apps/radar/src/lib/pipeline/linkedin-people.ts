@@ -6,7 +6,8 @@ import { searchSchedule, SerperBudgetError, serperEnabled, serperSearch, type Se
 import { truncate } from "@/lib/text";
 import type { Deadline } from "./runs";
 
-// Profiles change slowly, so each people search runs once a week.
+// Profiles change slowly, so each people search runs once a week (less often when the monthly
+// Serper cap is tight).
 const PEOPLE_SEARCH_EVERY_MS = 6.5 * 86_400_000;
 // People Radar already knows are looked up a few at a time, once a day, and not found ones
 // again after a month.
@@ -46,13 +47,14 @@ export async function findLinkedInPeople(topic: Topic, deadline: Deadline, log: 
     // 1. People whose public profile mentions the topic.
     const searches = topic.config.queries.serper.profiles;
     const due = searches.filter((q) => schedule.due(`people:${q}`, PEOPLE_SEARCH_EVERY_MS));
-    if (searches.length && !due.length) infos.push("people searches ran this week");
+    if (searches.length && !due.length) infos.push(`people searches ran recently; each runs ${schedule.every(PEOPLE_SEARCH_EVERY_MS) ?? "once a week"}`);
     for (const q of due) {
       if (deadline.near(20_000)) break;
       const result = await serperSearch<SerperSearch>("search", linkedInQuery(q, "profiles"));
       schedule.ran(`people:${q}`);
       if (!result) {
-        queries[q] = { found: 0, error: "Serper's free plan refused this search, even in simpler forms" };
+        queries[`people:${q}`] = { found: 0, error: "Serper's free plan refused this search, even in simpler forms" };
+        schedule.note(`people:${q}`, queries[`people:${q}`]);
         continue;
       }
       const profiles = (result.data.organic ?? [])
@@ -70,13 +72,14 @@ export async function findLinkedInPeople(topic: Topic, deadline: Deadline, log: 
         if (row && row.firstSeenAt.getTime() === row.lastSeenAt.getTime()) stat.inserted += 1;
       }
       stat.fetched += profiles.length;
-      queries[q] = { found: profiles.length, ...(result.ranAs ? { ranAs: result.ranAs } : {}) };
+      queries[`people:${q}`] = { found: profiles.length, ...(result.ranAs ? { ranAs: result.ranAs } : {}) };
+      schedule.note(`people:${q}`, queries[`people:${q}`]);
       changed ||= profiles.length > 0;
     }
 
     // 2. The public profiles of people Radar found speaking, writing or posting on this topic.
     const recheckBefore = new Date(Date.now() - RECHECK_AFTER_MS).toISOString();
-    const candidates = schedule.due("people:matching", MATCH_EVERY_MS)
+    const candidates = schedule.due("matching", MATCH_EVERY_MS)
       ? await db
           .selectDistinct({ id: people.id, name: people.name, orgName: people.orgName, mentions: people.mentionCount })
           .from(people)
@@ -121,8 +124,9 @@ export async function findLinkedInPeople(topic: Topic, deadline: Deadline, log: 
       }
     }
     if (looked) {
-      schedule.ran("people:matching");
-      queries["Matching people from the news"] = { found: matched };
+      schedule.ran("matching");
+      queries.matching = { found: matched };
+      schedule.note("matching", queries.matching);
       infos.push(`matched ${matched} of ${looked} people to their LinkedIn profiles`);
     }
   } catch (error) {

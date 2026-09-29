@@ -213,6 +213,9 @@ export type SpendDTO = {
 
 export type DailyCount = { date: string; items: number; relevant: number };
 
+/** A Serper search's latest result, shown under it in Settings. */
+export type SearchResultDTO = { found: number; ranAs?: string; error?: string; at: string };
+
 export type ConsoleData = {
   /** When this payload was assembled (start of the build). */
   generatedAt: string;
@@ -223,6 +226,8 @@ export type ConsoleData = {
   people: PersonDTO[];
   orgs: OrgDTO[];
   profiles: ProfileDTO[];
+  /** Serper searches' latest results, by key: news:<search>, posts:<search>, #<tag>, people:<search>, matching. */
+  searches: Record<string, SearchResultDTO>;
   sources: SourceDTO[];
   runs: RunDTO[];
   spend: SpendDTO;

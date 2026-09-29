@@ -267,7 +267,7 @@ export function LinkedInView() {
           <LinkedInIcon size={18} className="mt-0.5 shrink-0 text-accent" />
           <div>
             <h2 className="text-[15px] font-semibold">LinkedIn</h2>
-            <p className="text-[12px] text-fg-3">Public posts and profiles that Google has found. Searched once a day; Radar never logs in to LinkedIn.</p>
+            <p className="text-[12px] text-fg-3">Public posts and profiles that Google has found. Searched up to once a day; Radar never logs in to LinkedIn.</p>
             {capReached ? (
               <p className="mt-1 text-[12px] text-warn">
                 This month&apos;s {data.spend.serper.cap.toLocaleString()} Serper searches are used up, so searching pauses until the 1st. Raise{" "}
@@ -390,7 +390,7 @@ export function LinkedInView() {
             ) : (
               <p className="px-4 py-8 text-center text-[13px] text-fg-3">
                 {peopleFilter === "search"
-                  ? "People searches run once a week. Set them in Settings, under LinkedIn."
+                  ? "People searches run up to once a week. Set them in Settings, under LinkedIn."
                   : peopleFilter === "news"
                     ? "People from the news are matched to their profiles a few at a time on each run."
                     : "No one here yet."}

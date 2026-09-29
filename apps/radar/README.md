@@ -67,7 +67,7 @@ With `SERPER_API_KEY` set, Radar finds public LinkedIn posts, articles and peopl
 - **People searches:** phrases people put in their headline or About, like `"AI insurance"`; Radar adds `site:linkedin.com/in`.
 - **People from the news:** each day, Radar looks up a few people who were quoted, wrote or posted. A profile only counts when the name matches and their organization shows on it, so namesakes are skipped.
 
-Posts, hashtags and Serper news searches run once a day, people searches once a week. The **LinkedIn** view has the posts on the left, with hashtag and account filters, and the people on the right: who posted, who was matched from the news, and who turned up in a people search. Click someone to see all their posts. New posts show under Signal until Claude has scored them.
+Posts, hashtags and Serper news searches run up to once a day, people searches up to once a week. When all the topics' searches would pass the monthly cap, Radar spaces them out to fit, so searching carries on all month. The **LinkedIn** view has the posts on the left, with hashtag and account filters, and the people on the right: who posted, who was matched from the news, and who turned up in a people search. Click someone to see all their posts. New posts show under Signal until Claude has scored them.
 
 Settings, under LinkedIn, shows what each search found last time. Serper's free plan returns at most 10 results a search and refuses some complex searches; Radar then runs a simpler form and says so under the search. Topics created before people searches and hashtags existed get a few, taken from their LinkedIn searches.
 
@@ -113,7 +113,7 @@ The free plan runs each job once a day and may start it anywhere within the hour
 | Vercel, Neon, Google News, feeds, Hacker News, Reddit RSS, GDELT | Free |
 | Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
 | X API (optional) | Pay per use, $0.005 per post read. Radar stops at `X_MONTHLY_BUDGET_USD` (default $10). |
-| Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use up to about 450 a month. Radar stops at `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics, and searching pauses until the 1st; with several topics, raise it or trim searches. |
+| Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use up to about 450 a month. Radar keeps to `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics: with several topics, each search runs every few days instead of daily. Raise the cap to search more often. |
 
 The Health view shows this month's spend against each cap.
 

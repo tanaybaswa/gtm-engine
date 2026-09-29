@@ -1,6 +1,9 @@
+import type { QueryOutcome } from "@/db/schema";
 import { config } from "@/lib/config";
 import { fetchJson, HttpError } from "@/lib/http";
 import { getKv, setKv } from "@/lib/kv";
+import { listTopics } from "@/lib/topics/store";
+import type { TopicConfig } from "@/lib/topics/types";
 import { addUsage, getUsage } from "@/lib/usage";
 import { simplerQuery } from "./linkedin";
 
@@ -68,16 +71,65 @@ export async function serperSearch<T>(
   return null;
 }
 
-/** When each of a topic's searches last ran, so each runs at most once per interval. */
+/** A search's latest result, shown under it in Settings. */
+export type SearchResult = QueryOutcome & { at: string };
+
+// People matched from the news in a day, on average: up to 5 while there are new people.
+const MATCHES_A_DAY = 3;
+
+/** About how many Serper searches a topic makes in a day. */
+export function dailySearches(topic: TopicConfig): number {
+  const q = topic.queries;
+  return q.serper.news.length + q.serper.linkedin.length + q.hashtags.length + q.serper.profiles.length / 7 + MATCHES_A_DAY;
+}
+
+/**
+ * How much longer than planned to wait between searches, so every active topic's searches fit
+ * in what's left of this month's cap: 1 is as planned, 2.5 is two and a half times as long.
+ */
+export function searchPace(plannedPerDay: number, left: number, now = Date.now()): number {
+  if (left <= 0 || plannedPerDay <= 0) return 1;
+  const date = new Date(now);
+  const daysLeft = Math.max(1, (Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) - now) / 86_400_000);
+  return Math.max(1, plannedPerDay / (left / daysLeft));
+}
+
+const resultsKey = (topicId: number) => `serper:results:${topicId}`;
+
+/** Each of a topic's searches' latest result. */
+export async function searchResults(topicId: number): Promise<Record<string, SearchResult>> {
+  return (await getKv<Record<string, SearchResult>>(resultsKey(topicId))) ?? {};
+}
+
+/**
+ * When each of a topic's searches last ran and what it found. Each runs at most once per
+ * interval, stretched by the pace when the month's cap is tight.
+ */
 export async function searchSchedule(topicId: number) {
-  const key = `serper:last-run:${topicId}`;
-  const last = (await getKv<Record<string, string>>(key)) ?? {};
+  const runsKey = `serper:last-run:${topicId}`;
+  const [lastRuns, results, topics, left] = await Promise.all([
+    getKv<Record<string, string>>(runsKey),
+    searchResults(topicId),
+    listTopics(),
+    serperSearchesLeft(),
+  ]);
+  const last = lastRuns ?? {};
+  const planned = topics.filter((t) => t.active).reduce((n, t) => n + dailySearches(t.config), 0);
+  const pace = searchPace(planned, left);
   return {
-    due: (search: string, intervalMs: number) => !last[search] || Date.now() - Date.parse(last[search]) >= intervalMs,
-    lastRun: (search: string) => last[search],
+    pace,
+    /** "once a day", or "about every 2.5 days" when the cap is tight. */
+    every: (intervalMs: number) => {
+      const days = (intervalMs * pace) / 86_400_000;
+      return pace <= 1.05 ? null : `about every ${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
+    },
+    due: (search: string, intervalMs: number) => !last[search] || Date.now() - Date.parse(last[search]) >= intervalMs * pace,
     ran: (search: string) => {
       last[search] = new Date().toISOString();
     },
-    save: () => setKv(key, last),
+    note: (search: string, outcome: QueryOutcome) => {
+      results[search] = { ...outcome, at: new Date().toISOString() };
+    },
+    save: () => Promise.all([setKv(runsKey, last), setKv(resultsKey(topicId), results)]),
   };
 }

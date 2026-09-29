@@ -260,6 +260,70 @@ describe("serper searches", () => {
   });
 });
 
+describe("serper pacing", () => {
+  it("runs searches once a day while the cap allows, and spreads them out when it doesn't", async () => {
+    const { searchPace } = await import("@/lib/sources/serper-client");
+    const oct1 = Date.UTC(2026, 9, 1);
+    // One topic, about 13 searches a day, 500 left for October's 31 days: once a day.
+    expect(searchPace(13, 500, oct1)).toBe(1);
+    // Four topics: about 52 a day against 16 a day left, so each search waits about 3.2 days.
+    expect(searchPace(52, 500, oct1)).toBeCloseTo(3.22, 1);
+    // Late in the month with spare searches, back to once a day.
+    expect(searchPace(52, 300, Date.UTC(2026, 9, 28))).toBe(1);
+    // On the last day, what's left is today's allowance; when nothing is left, the cap error says so.
+    expect(searchPace(52, 26, Date.UTC(2026, 9, 31, 20))).toBe(2);
+    expect(searchPace(52, 0, oct1)).toBe(1);
+  });
+
+  it("keeps each search's latest result under its own key, and doesn't repeat a search the same day", async () => {
+    const { serper } = await import("@/lib/sources/serper");
+    const { searchResults } = await import("@/lib/sources/serper-client");
+    const { getDefaultTopic } = await import("@/lib/topics/store");
+    const topic = (await getDefaultTopic())!;
+    // The same phrase as a news search and a LinkedIn search stays two separate results.
+    const config = structuredClone(topic.config);
+    config.queries.serper = { news: ['"AI liability"'], linkedin: ['"AI liability"'], profiles: [] };
+    config.queries.hashtags = ["AIliability"];
+    const saved = process.env.SERPER_API_KEY;
+    process.env.SERPER_API_KEY = "test-key";
+    const post = (id: number) => ({
+      title: "Jane Smith's Post",
+      link: `https://www.linkedin.com/posts/jane-smith_ai-liability-activity-${(BigInt(Date.now() - 86_400_000) << BigInt(22)) + BigInt(id)}-abcd`,
+      snippet: "Who pays when an AI agent gets it wrong? #AIliability",
+    });
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        const body = JSON.parse(String(init.body)) as { q: string };
+        requests.push(`${url.split("/").pop()} ${body.q}`);
+        return url.endsWith("/news")
+          ? new Response(JSON.stringify({ news: [] }), { status: 200 })
+          : new Response(JSON.stringify({ organic: body.q.includes("#") ? [post(1)] : [post(2), post(3)] }), { status: 200 });
+      }),
+    );
+    try {
+      const context = { topic: { ...topic, config }, since: new Date(Date.now() - 36 * 3_600_000), lookbackHours: 36, log: () => {} };
+      const found = await serper.collect(context);
+      expect(found).toHaveLength(3);
+      expect(requests).toEqual(['news "AI liability"', 'search site:linkedin.com/posts "AI liability"', "search site:linkedin.com/posts #AIliability"]);
+      const results = await searchResults(topic.id);
+      expect(results['news:"AI liability"']).toMatchObject({ found: 0 });
+      expect(results['posts:"AI liability"']).toMatchObject({ found: 2 });
+      expect(results["#AIliability"]).toMatchObject({ found: 1 });
+      // Run again straight away: nothing is due.
+      const infos: string[] = [];
+      expect(await serper.collect({ ...context, info: (m) => infos.push(m) })).toEqual([]);
+      expect(requests).toHaveLength(3);
+      expect(infos.join(" ")).toMatch(/ran recently/);
+    } finally {
+      vi.unstubAllGlobals();
+      if (saved === undefined) delete process.env.SERPER_API_KEY;
+      else process.env.SERPER_API_KEY = saved;
+    }
+  });
+});
+
 describe("prompts", () => {
   it("never contain em dashes", async () => {
     const { analystSystemPrompt, briefPrompt, extractPrompt, triagePrompt } = await import("@/lib/ai/prompts");

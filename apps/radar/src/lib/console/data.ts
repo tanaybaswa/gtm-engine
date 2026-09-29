@@ -20,6 +20,7 @@ import { fallbackGuide } from "@/lib/ai/prompts";
 import { config, localDate, timeZone } from "@/lib/config";
 import { defaultTopics } from "@/lib/topics/defaults";
 import { getTopic, listTopics } from "@/lib/topics/store";
+import { searchResults } from "@/lib/sources/serper-client";
 import { domainOf } from "@/lib/url";
 import { getMonthUsage } from "@/lib/usage";
 import { changedAt, RADAR_TAG } from "./changes";
@@ -42,7 +43,7 @@ import {
 } from "./types";
 
 // Bump when the payload shape changes: cached payloads outlive deployments.
-const PAYLOAD_VERSION = "console-v2";
+const PAYLOAD_VERSION = "console-v3";
 // Cached payloads refresh on their own at least this often, in the background.
 const REVALIDATE_SECONDS = 900;
 const ITEM_DAYS = 30;
@@ -128,7 +129,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
   const since14 = new Date(Date.now() - 15 * 86_400_000);
   const day = sql<string>`to_char((${itemTime} at time zone ${timeZone}), 'YYYY-MM-DD')`;
 
-  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows, profileRows] = await Promise.all([
+  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows, profileRows, searches] = await Promise.all([
     db
       .select({ item: items, kind: sources.kind })
       .from(items)
@@ -225,6 +226,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       .where(eq(linkedinProfiles.topicId, topicId))
       .orderBy(desc(linkedinProfiles.lastSeenAt), desc(linkedinProfiles.id))
       .limit(300),
+    searchResults(topicId),
   ]);
 
   // Stories: the latest briefs.
@@ -420,6 +422,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       firstSeenAt: p.firstSeenAt.toISOString(),
       lastSeenAt: p.lastSeenAt.toISOString(),
     })),
+    searches,
     sources: sourceDTOs,
     runs: runRows.map((r) => toRunDTO(r)),
     spend: {

@@ -1,11 +1,12 @@
 import type { QueryOutcome } from "@/db/schema";
+import { config } from "@/lib/config";
 import { domainOf } from "@/lib/url";
 import { activityTime, hashtagQuery, linkedInQuery, parseLinkedInPost, profileUrl } from "./linkedin";
 import { searchSchedule, SerperBudgetError, serperEnabled, serperSearch, type SerperNews, type SerperSearch } from "./serper-client";
 import type { Connector, RawItem } from "./types";
 
 // Each search runs at most once a day: Google takes a day or more to index LinkedIn posts,
-// and Serper's free plan is 2,500 searches in all.
+// and Serper's free plan is 2,500 searches in all. Less often when the monthly cap is tight.
 const SEARCH_EVERY_MS = 20 * 3_600_000;
 // Posts older than this aren't news any more, even when Google shows them.
 const MAX_POST_AGE_MS = 21 * 86_400_000;
@@ -90,15 +91,18 @@ export const serper: Connector = {
     if (!serperEnabled()) return [];
     const { serper: searches, hashtags } = topic.config.queries;
     const newsTbs = lookbackHours <= 24 ? "qdr:d" : lookbackHours <= 24 * 7 ? "qdr:w" : "qdr:m";
+    // Keys match the ones Settings looks up: news:<search>, posts:<search> and #<tag>.
     const plan = [
-      ...searches.news.map((q) => ({ key: q, kind: "news" as const, q, tbs: newsTbs })),
-      ...searches.linkedin.map((q) => ({ key: q, kind: "linkedin" as const, q: linkedInQuery(q, "posts"), tbs: "qdr:w" })),
+      ...searches.news.map((q) => ({ key: `news:${q}`, kind: "news" as const, q, tbs: newsTbs })),
+      ...searches.linkedin.map((q) => ({ key: `posts:${q}`, kind: "linkedin" as const, q: linkedInQuery(q, "posts"), tbs: "qdr:w" })),
       ...hashtags.map((tag) => ({ key: `#${tag.replace(/^#/, "")}`, kind: "linkedin" as const, q: hashtagQuery(tag), tbs: "qdr:w" })),
     ];
     const schedule = await searchSchedule(topic.id);
+    const every = schedule.every(SEARCH_EVERY_MS);
+    if (every) info(`searches spread out to fit ${config.serperMonthlyQueries} a month: each runs ${every}`);
     const due = plan.filter((p) => schedule.due(p.key, SEARCH_EVERY_MS));
     if (plan.length && !due.length) {
-      info("every search ran in the last day; each runs once a day");
+      info(`every search ran recently; each runs ${every ?? "once a day"}`);
       return [];
     }
 
@@ -130,12 +134,13 @@ export const serper: Connector = {
           outcome = { found: 0, error: (error as Error).message.slice(0, 200) };
           log(`serper "${p.key}": ${(error as Error).message}`);
         }
+        schedule.note(p.key, outcome);
         noteQuery(p.key, outcome);
       }
     } finally {
       await schedule.save();
     }
-    if (due.length < plan.length) info(`${plan.length - due.length} searches ran in the last day and wait for tomorrow`);
+    if (due.length < plan.length) info(`${plan.length - due.length} searches ran recently and wait for their turn`);
     return out;
   },
 };
