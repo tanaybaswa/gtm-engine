@@ -172,15 +172,13 @@ export const aiLiabilityInsurance: TopicSeed = {
         ],
         accounts: [],
       },
+      // Serper's free plan refuses some complex searches, so these stay simple: one phrase each.
       serper: {
-        news: ["AI liability insurance", '"affirmative AI" OR "AI exclusion" insurance'],
-        linkedin: [
-          'site:linkedin.com/posts "AI liability" insurance',
-          'site:linkedin.com/posts "silent AI" OR "affirmative AI"',
-          'site:linkedin.com/posts "AI insurance" underwriting',
-          'site:linkedin.com/posts "tech E&O" AI',
-        ],
+        news: ["AI liability insurance", '"affirmative AI" insurance'],
+        linkedin: ['"AI liability"', '"AI insurance"', '"silent AI"', '"affirmative AI"', 'site:linkedin.com/pulse "AI liability"'],
+        profiles: ['"AI liability"', '"AI insurance"', '"affirmative AI"'],
       },
+      hashtags: ["AIinsurance", "AIliability", "silentAI"],
     },
     feeds,
     watch: {

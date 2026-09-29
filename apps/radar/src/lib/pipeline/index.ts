@@ -4,6 +4,7 @@ import { markChanged } from "@/lib/console/changes";
 import { writeBrief } from "./brief";
 import { collectTopic } from "./collect";
 import { enrichTopic } from "./enrich";
+import { findLinkedInPeople } from "./linkedin-people";
 import { Deadline, finishRun, saveRunProgress, startRun, type ProgressUpdate, type Trigger } from "./runs";
 
 export type StageOptions = { budgetSeconds?: number; log?: (message: string) => void };
@@ -57,6 +58,13 @@ export async function runStage(topic: Topic, stage: RunStage, trigger: Trigger, 
       stats.notes!.push(...collected.notes, `${collected.inserted} new items stored`);
       if (Object.values(collected.connectors).some((c) => c.error)) status = "partial";
       if (collected.inserted) await announce();
+      // People on LinkedIn: profile searches and matching people from the news (Serper).
+      if (!deadline.near(40_000)) {
+        const linkedin = await findLinkedInPeople(topic, deadline, log);
+        stats.connectors.linkedin_people = linkedin.stat;
+        stats.notes!.push(...linkedin.notes);
+        if (linkedin.changed) await announce();
+      }
     }
     if ((stage === "enrich" || stage === "full" || stage === "brief") && !deadline.near(30_000)) {
       progress.update({ phase: "score", done: 0 });

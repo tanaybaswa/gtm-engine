@@ -104,7 +104,9 @@ export const x: Connector = {
     const startTime = new Date(Math.max(since.getTime(), Date.now() - 6.9 * 24 * 3600 * 1000)).toISOString();
     const out: RawItem[] = [];
 
-    for (const query of topic.config.queries.x.search) {
+    const tags = topic.config.queries.hashtags.map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+    const searches = [...topic.config.queries.x.search, ...(tags.length ? [`(${tags.map((t) => `#${t}`).join(" OR ")}) -is:retweet lang:en`] : [])];
+    for (const query of searches) {
       const maxResults = 25;
       if ((await budgetLeft()) < maxResults * (POST_READ_MICROUSD + USER_READ_MICROUSD)) {
         log("x: monthly budget reached, skipping search");

@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { items, sources, type ConnectorStat, type NewItem, type Topic } from "@/db/schema";
+import { items, sources, type ConnectorStat, type NewItem, type QueryOutcome, type Topic } from "@/db/schema";
 import { connectors, type RawItem } from "@/lib/sources";
 import { compileKeywordFilter, titleKey, truncate } from "@/lib/text";
 import { canonicalizeUrl, domainOf, isHttpUrl } from "@/lib/url";
@@ -73,17 +73,30 @@ export async function collectTopic(
         return [] as RawItem[];
       }
       const messages: string[] = [];
+      const infos: string[] = [];
+      const queries: Record<string, QueryOutcome> = {};
+      const extras = () => ({
+        ...(Object.keys(queries).length ? { queries } : {}),
+        ...(infos.length ? { info: truncate(infos.join("; "), 300) } : {}),
+      });
       try {
         const found = await withTimeout(
-          connector.collect({ topic, since, lookbackHours, log: (m) => messages.push(m) }),
+          connector.collect({
+            topic,
+            since,
+            lookbackHours,
+            log: (m) => messages.push(m),
+            noteQuery: (key, outcome) => (queries[key] = outcome),
+            info: (m) => infos.push(m),
+          }),
           Math.max(10_000, Math.min(150_000, deadline.remainingMs - 30_000)),
           connector.label,
         );
-        stats[connector.id] = { fetched: found.length, inserted: 0, ms: Date.now() - started };
+        stats[connector.id] = { fetched: found.length, inserted: 0, ms: Date.now() - started, ...extras() };
         if (messages.length) stats[connector.id].error = truncate(messages.join("; "), 500);
         return found;
       } catch (error) {
-        stats[connector.id] = { fetched: 0, inserted: 0, error: (error as Error).message, ms: Date.now() - started };
+        stats[connector.id] = { fetched: 0, inserted: 0, error: (error as Error).message, ms: Date.now() - started, ...extras() };
         return [] as RawItem[];
       } finally {
         messages.forEach((m) => log(m));

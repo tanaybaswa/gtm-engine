@@ -1,13 +1,14 @@
 "use client";
 
 import { Archive, ArchiveRestore, Braces, Plus, RotateCcw, Trash2, X } from "lucide-react";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
-import type { TopicDTO } from "@/lib/console/types";
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import type { QueryOutcome } from "@/db/schema";
+import type { RunDTO, TopicDTO } from "@/lib/console/types";
 import { SOURCE_KINDS } from "@/lib/topics/kinds";
 import type { FeedConfig, TopicConfig } from "@/lib/topics/types";
 import { KIND_LABELS } from "../format";
 import { useCtl, useTopicData } from "../store";
-import { Button, Panel, Skeleton } from "../ui";
+import { Button, Panel, Skeleton, TimeAgo } from "../ui";
 
 const input =
   "h-8 w-full rounded-lg border border-line bg-panel-2 px-2.5 text-[13px] text-fg placeholder:text-fg-3 focus:border-accent/60 focus:outline-none";
@@ -25,7 +26,17 @@ function Field({ label, hint, children }: { label: string; hint?: ReactNode; chi
 }
 
 /** One line per entry, for long values such as search queries. */
-function LinesEditor({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+function LinesEditor({
+  values,
+  onChange,
+  placeholder,
+  status,
+}: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+  status?: (value: string) => ReactNode;
+}) {
   const [next, setNext] = useState("");
   const add = () => {
     const v = next.trim();
@@ -35,21 +46,24 @@ function LinesEditor({ values, onChange, placeholder }: { values: string[]; onCh
   return (
     <div className="space-y-1.5">
       {values.map((value, i) => (
-        <div key={i} className="flex items-center gap-1.5">
-          <input
-            className={`${input} font-mono text-[12px]`}
-            value={value}
-            onChange={(e) => onChange(values.map((v, j) => (j === i ? e.target.value : v)))}
-            aria-label={`Entry ${i + 1}`}
-          />
-          <button
-            type="button"
-            onClick={() => onChange(values.filter((_, j) => j !== i))}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-3 hover:bg-panel-3 hover:text-bad"
-            aria-label="Remove"
-          >
-            <Trash2 size={13} />
-          </button>
+        <div key={i}>
+          <div className="flex items-center gap-1.5">
+            <input
+              className={`${input} font-mono text-[12px]`}
+              value={value}
+              onChange={(e) => onChange(values.map((v, j) => (j === i ? e.target.value : v)))}
+              aria-label={`Entry ${i + 1}`}
+            />
+            <button
+              type="button"
+              onClick={() => onChange(values.filter((_, j) => j !== i))}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-3 hover:bg-panel-3 hover:text-bad"
+              aria-label="Remove"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+          {status ? <div className="mt-0.5 mb-1 pl-1 text-[11.5px]">{status(value)}</div> : null}
         </div>
       ))}
       <div className="flex items-center gap-1.5">
@@ -79,12 +93,24 @@ function LinesEditor({ values, onChange, placeholder }: { values: string[]; onCh
 }
 
 /** Chips for short values: keywords, subreddits, accounts, names. */
-function ChipsEditor({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+function ChipsEditor({
+  values,
+  onChange,
+  placeholder,
+  badge,
+  normalize = (v) => v,
+}: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+  badge?: (value: string) => ReactNode;
+  normalize?: (value: string) => string;
+}) {
   const [next, setNext] = useState("");
   const add = () => {
     const parts = next
       .split(",")
-      .map((s) => s.trim())
+      .map((s) => normalize(s.trim()))
       .filter(Boolean);
     if (parts.length) onChange([...new Set([...values, ...parts])]);
     setNext("");
@@ -102,6 +128,7 @@ function ChipsEditor({ values, onChange, placeholder }: { values: string[]; onCh
       {values.map((value) => (
         <span key={value} className="inline-flex h-6 items-center gap-1 rounded-md bg-panel-3 pr-1 pl-2 text-[12px] text-fg">
           {value}
+          {badge ? badge(value) : null}
           <button type="button" onClick={() => onChange(values.filter((v) => v !== value))} className="rounded text-fg-3 hover:text-fg" aria-label={`Remove ${value}`}>
             <X size={12} />
           </button>
@@ -180,6 +207,37 @@ function FeedsEditor({ feeds, onChange }: { feeds: FeedConfig[]; onChange: (v: F
   );
 }
 
+type Outcome = { outcome: QueryOutcome; at: string };
+
+/** The latest result of each search, from recent runs (searches run once a day, so look back). */
+function searchOutcomes(runs: RunDTO[]): Map<string, Outcome> {
+  const out = new Map<string, Outcome>();
+  for (const run of runs) {
+    for (const stat of Object.values(run.connectors ?? {})) {
+      for (const [key, outcome] of Object.entries(stat.queries ?? {})) {
+        if (!out.has(key)) out.set(key, { outcome, at: run.startedAt });
+      }
+    }
+  }
+  return out;
+}
+
+function OutcomeLine({ result }: { result: Outcome | undefined }) {
+  if (!result) return <span className="text-fg-3">Not run yet. It runs with the next collection.</span>;
+  const { outcome, at } = result;
+  if (outcome.error) return <span className="text-bad">{outcome.error}</span>;
+  return (
+    <span className="text-fg-3">
+      <span className="text-fg-2">{outcome.found} found</span> <TimeAgo iso={at} />
+      {outcome.ranAs ? (
+        <span className="block text-warn">
+          Serper&apos;s free plan refused the full search, so this ran: <code className="font-mono">{outcome.ranAs}</code>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 type Draft = { name: string; description: string; config: TopicConfig };
 
 function SettingsEditor({ topic }: { topic: TopicDTO }) {
@@ -194,6 +252,11 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
   const c = draft.config;
   const setConfig = (fn: (c: TopicConfig) => TopicConfig) => setDraft((d) => ({ ...d, config: fn(structuredClone(d.config)) }));
   const q = c.queries;
+  const data = useTopicData();
+  const runs = data?.runs;
+  const serperOn = data?.spend.serper.enabled ?? false;
+  const outcomes = useMemo(() => searchOutcomes(runs ?? []), [runs]);
+  const outcome = (key: string) => <OutcomeLine result={outcomes.get(key)} />;
 
   const save = async () => {
     setSaving(true);
@@ -300,13 +363,57 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
             <Field label="X accounts">
               <ChipsEditor values={q.x.accounts} placeholder="handle, then Enter" onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, x: { ...x.queries.x, accounts: v } } }))} />
             </Field>
-            <Field label="Serper news" hint="Used only when SERPER_API_KEY is set.">
-              <LinesEditor values={q.serper.news} placeholder="plain search" onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, news: v } } }))} />
-            </Field>
-            <Field label="LinkedIn posts (via Serper)">
-              <LinesEditor values={q.serper.linkedin} placeholder='site:linkedin.com/posts "phrase"' onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, linkedin: v } } }))} />
+            <Field label="Serper news" hint="Google News with publishers' own links. Used only when SERPER_API_KEY is set.">
+              <LinesEditor
+                values={q.serper.news}
+                placeholder="plain search"
+                status={serperOn ? outcome : undefined}
+                onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, news: v } } }))}
+              />
             </Field>
           </div>
+        </div>
+      </Panel>
+
+      <Panel title="LinkedIn" meta={serperOn ? "Through Google, with Serper. Radar never logs in to LinkedIn." : "Off until SERPER_API_KEY is set"}>
+        <div className="space-y-5">
+          <p className="text-[12.5px] leading-relaxed text-fg-3">
+            Posts and hashtags are searched once a day, people once a week. Serper&apos;s free plan refuses some complex searches; Radar then runs a
+            simpler form and says so under the search.
+          </p>
+          <Field label="Posts and articles" hint='One quoted phrase each works best, like "AI liability". Radar adds site:linkedin.com/posts; start with site:linkedin.com/pulse for articles.'>
+            <LinesEditor
+              values={q.serper.linkedin}
+              placeholder='"phrase people write in posts"'
+              status={serperOn ? outcome : undefined}
+              onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, linkedin: v } } }))}
+            />
+          </Field>
+          <Field label="Hashtags" hint="Without the #. Searched on LinkedIn, and on X when X is on.">
+            <ChipsEditor
+              values={q.hashtags}
+              placeholder="AIinsurance, then Enter"
+              normalize={(v) => v.replace(/^#/, "").replace(/\s+/g, "")}
+              badge={(tag) => {
+                const result = outcomes.get(`#${tag}`);
+                if (!serperOn || !result) return null;
+                return (
+                  <span className={`font-mono text-[10.5px] ${result.outcome.error ? "text-bad" : "text-fg-3"}`} title={result.outcome.error ?? `${result.outcome.found} found`}>
+                    {result.outcome.error ? "!" : result.outcome.found}
+                  </span>
+                );
+              }}
+              onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, hashtags: v } }))}
+            />
+          </Field>
+          <Field label="People searches" hint='Phrases people put in their LinkedIn headline or About, like "AI insurance". Radar adds site:linkedin.com/in. The people show on the LinkedIn view.'>
+            <LinesEditor
+              values={q.serper.profiles}
+              placeholder='"phrase in their headline"'
+              status={serperOn ? outcome : undefined}
+              onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, profiles: v } } }))}
+            />
+          </Field>
         </div>
       </Panel>
 

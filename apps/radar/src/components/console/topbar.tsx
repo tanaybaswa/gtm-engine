@@ -105,9 +105,9 @@ export function TopBar() {
   const range = useConsole((s) => s.range);
   const signalOnly = useConsole((s) => s.signalOnly);
   const busy = useConsole((s) => Boolean(s.status?.running.some((r) => r.topicId === s.topicId) || s.starting[s.topicId]));
-  const filtersApply = view === "panel" || view === "stream";
+  const filtersApply = view === "panel" || view === "stream" || view === "linkedin";
   const unscored = Boolean(data && data.totals.scored === 0);
-  const signalHint = unscored ? "Nothing is scored yet, so everything shows" : "Only items scored as relevant";
+  const signalHint = unscored ? "Nothing is scored yet, so everything shows" : "Only items scored as relevant, and LinkedIn posts not scored yet";
 
   return (
     <header className="border-b border-line bg-panel/70 backdrop-blur-md">

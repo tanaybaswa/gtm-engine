@@ -24,6 +24,8 @@ const designSchema = z.object({
   xSearch: z.array(z.string()),
   serperNews: z.array(z.string()),
   linkedin: z.array(z.string()),
+  hashtags: z.array(z.string()),
+  linkedinPeople: z.array(z.string()),
   feeds: z.array(z.object({ url: z.string(), name: z.string(), kind: z.enum(SOURCE_KINDS), onTopic: z.boolean() })),
   watchOrgs: z.array(z.string()),
   watchPeople: z.array(z.string()),
@@ -45,7 +47,10 @@ Given a topic request, design everything Radar needs:
 - hackerNews: 1 to 3 quoted phrases, only if the topic has a technology angle; otherwise none.
 - redditSearch: 1 or 2 searches. subreddits: 2 to 6 real, active subreddits, names only.
 - xSearch: one X API v2 query ending in -is:retweet lang:en.
-- serperNews: 1 to 3 plain searches. linkedin: 2 to 4 searches shaped like site:linkedin.com/posts "phrase".
+- serperNews: 1 to 3 plain searches.
+- linkedin: 3 to 5 LinkedIn post searches, each a single quoted phrase people would write in a post, such as "AI liability". Keep them that simple: the search service refuses complex ones.
+- hashtags: 3 to 6 hashtags people use on LinkedIn for this topic, without the #, such as AIinsurance.
+- linkedinPeople: 2 to 4 quoted phrases that people working on this topic put in their LinkedIn headline or About section, such as "AI insurance".
 - feeds: 6 to 16 RSS or Atom feeds you are confident exist: trade publications, company newsrooms, regulators, law firm blogs, research groups, newsletters (Substack feeds end in /feed), podcasts. onTopic is true only when a feed is entirely about this topic; general feeds are filtered by the keywords. Every feed is checked live and dropped if it fails, so prefer ones you are sure of.
 - watchOrgs: 5 to 20 organizations central to the topic. watchPeople: people clearly central to it, only when you are confident (up to 10).
 
@@ -86,7 +91,7 @@ function basicConfig(name: string): TopicConfig {
       hackerNews: [phrase],
       reddit: { search: [phrase], subreddits: [] },
       x: { search: [`${phrase} -is:retweet lang:en`], accounts: [] },
-      serper: { news: [name], linkedin: [`site:linkedin.com/posts ${phrase}`] },
+      serper: { news: [name], linkedin: [phrase], profiles: [phrase] },
     },
   });
 }
@@ -124,7 +129,12 @@ export async function compileTopic(input: { name: string; brief: string }): Prom
       hackerNews: clean(design.hackerNews, 3),
       reddit: { search: clean(design.redditSearch, 2), subreddits: clean(design.subreddits.map((s) => s.replace(/^\/?r\//i, "")), 8) },
       x: { search: clean(design.xSearch, 2), accounts: [] },
-      serper: { news: clean(design.serperNews, 3), linkedin: clean(design.linkedin, 4) },
+      serper: {
+        news: clean(design.serperNews, 3),
+        linkedin: clean(design.linkedin, 5),
+        profiles: clean(design.linkedinPeople, 4),
+      },
+      hashtags: clean(design.hashtags.map((t) => t.replace(/^#/, "").replace(/\s+/g, "")), 6),
     },
     feeds,
     watch: { orgs: clean(design.watchOrgs, 25), people: clean(design.watchPeople, 12) },
@@ -146,7 +156,7 @@ export async function compileTopic(input: { name: string; brief: string }): Prom
     description: design.description.trim() || brief || name,
     config: topicConfig,
     notes: [
-      `${topicConfig.queries.googleNews.length} news searches, ${feeds.length} feeds, ${topicConfig.watch.orgs.length} organizations to watch.`,
+      `${topicConfig.queries.googleNews.length} news searches, ${feeds.length} feeds, ${topicConfig.queries.hashtags.length} hashtags, ${topicConfig.watch.orgs.length} organizations to watch.`,
       ...(dropped > 0 ? [`${dropped} suggested feeds didn't respond and were left out.`] : []),
     ],
   };

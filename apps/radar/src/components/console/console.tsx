@@ -14,6 +14,7 @@ import { TopBar } from "./topbar";
 import { Button, Kbd } from "./ui";
 import { BriefView } from "./views/brief";
 import { HealthView } from "./views/health";
+import { LinkedInView } from "./views/linkedin";
 import { PanelView } from "./views/panel";
 import { PeopleView } from "./views/people";
 import { SettingsView } from "./views/settings";
@@ -35,6 +36,7 @@ const VIEW_COMPONENTS: Record<ViewId, ComponentType> = {
   panel: PanelView,
   brief: BriefView,
   stream: StreamView,
+  linkedin: LinkedInView,
   people: PeopleView,
   sources: SourcesView,
   health: HealthView,
@@ -111,7 +113,7 @@ function Toasts() {
 const SHORTCUTS: [string[], string][] = [
   [["⌘", "K"], "Search and commands"],
   [["/"], "Filter the current view"],
-  [["1", "…", "7"], "Switch views"],
+  [["1", "…", "8"], "Switch views"],
   [["[", "]"], "Previous or next topic"],
   [["j", "k"], "Move through the stream"],
   [["Enter"], "Open details"],
@@ -172,7 +174,7 @@ function useKeyboard() {
         else store.set({ palette: true });
       } else if (e.key === "?") {
         store.set({ shortcuts: !s.shortcuts });
-      } else if (/^[1-7]$/.test(e.key)) {
+      } else if (/^[1-8]$/.test(e.key)) {
         ctl.setView(VIEWS[Number(e.key) - 1].id);
       } else if (e.key === "[" || e.key === "]") {
         const list = s.topics.filter((t) => t.active || t.id === s.topicId);

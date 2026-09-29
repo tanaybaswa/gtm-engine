@@ -5,7 +5,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { SOURCE_LABELS, type ConsoleData, type ItemDTO } from "@/lib/console/types";
 import { itemsById, peopleByName } from "./derive";
 import { CATEGORY_LABELS, formatDateTime, itemTime, KIND_LABELS, linkedinSearch, PRIMARY_KIND_LABELS, RELATION_LABELS } from "./format";
-import { LinkedInMark, STREAM_ICONS } from "./icons";
+import { LinkedInIcon, STREAM_ICONS } from "./icons";
 import { ItemMini, streamLabel } from "./items";
 import { useConsole, useCtl, useTopicData, type Selection } from "./store";
 import { Badge, RelevanceMeter, TimeAgo } from "./ui";
@@ -43,37 +43,48 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
   const inStories = data.stories.filter((s) => s.itemIds.includes(item.id));
   const source = data.sources.find((s) => s.key === item.sourceKey);
   const people = peopleByName(data);
+  const stream = streamLabel(item.stream);
+  const outlet = item.outlet ?? item.sourceKey;
+  const via = SOURCE_LABELS[item.source] ?? item.source;
+  // Google names a LinkedIn poster on some results only; another post from the account may say who it is.
+  const linkedInAccount = item.source === "linkedin" && item.sourceKey.startsWith("linkedin:") ? item.sourceKey.slice("linkedin:".length) : null;
+  const author =
+    item.author ?? (linkedInAccount ? (data.items.find((i) => i.sourceKey === item.sourceKey && i.author)?.author ?? `@${linkedInAccount}`) : null);
   return (
     <>
       <div className="px-5 pt-1 pb-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-fg-3">
           <span className="inline-flex items-center gap-1 text-fg-2">
-            <Icon size={12} /> {streamLabel(item.stream)}
+            <Icon size={12} /> {stream}
           </span>
-          <span aria-hidden>·</span>
-          {source ? (
-            <button type="button" onClick={() => ctl.open({ kind: "source", id: source.id })} className="text-fg-2 hover:text-accent">
-              {item.outlet ?? item.sourceKey}
-            </button>
-          ) : (
-            <span>{item.outlet ?? item.sourceKey}</span>
-          )}
+          {outlet !== stream ? (
+            <>
+              <span aria-hidden>·</span>
+              {source ? (
+                <button type="button" onClick={() => ctl.open({ kind: "source", id: source.id })} className="text-fg-2 hover:text-accent">
+                  {outlet}
+                </button>
+              ) : (
+                <span>{outlet}</span>
+              )}
+            </>
+          ) : null}
           <span aria-hidden>·</span>
           <span title={formatDateTime(itemTime(item), timeZone)}>
             <TimeAgo iso={itemTime(item)} />
           </span>
-          <span className="font-mono text-[10.5px]">via {SOURCE_LABELS[item.source] ?? item.source}</span>
+          {via !== stream && via !== outlet ? <span className="font-mono text-[10.5px]">via {via}</span> : null}
         </div>
         <h2 className="mt-2 text-[18px] leading-snug font-semibold tracking-tight">{item.title}</h2>
-        {item.author ? (
+        {author ? (
           <div className="mt-1 text-[12.5px] text-fg-2">
             By{" "}
             {item.authorUrl ? (
               <a href={item.authorUrl} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
-                {item.author}
+                {author}
               </a>
             ) : (
-              item.author
+              author
             )}
           </div>
         ) : null}
@@ -182,6 +193,7 @@ function PersonDetail({ id, data }: { id: number; data: ConsoleData }) {
           <div className="min-w-0">
             <h2 className="text-[20px] leading-tight font-semibold tracking-tight">{person.name}</h2>
             {person.role || person.orgName ? <p className="mt-1 text-[13px] text-fg-2">{[person.role, person.orgName].filter(Boolean).join(", ")}</p> : null}
+            {person.linkedinHeadline ? <p className="mt-1 text-[12.5px] text-fg-3">LinkedIn: {person.linkedinHeadline}</p> : null}
           </div>
           <WatchButton kind="person" id={person.id} watched={person.watched} />
         </div>
@@ -195,7 +207,7 @@ function PersonDetail({ id, data }: { id: number; data: ConsoleData }) {
             rel="noopener noreferrer"
             className="inline-flex h-8 items-center gap-2 rounded-lg border border-line bg-panel-2 px-3 text-[13px] text-fg hover:border-line-2"
           >
-            <LinkedInMark /> {person.linkedinUrl ? "LinkedIn" : "Find on LinkedIn"}
+            <LinkedInIcon size={14} /> {person.linkedinUrl ? "LinkedIn" : "Find on LinkedIn"}
           </a>
           {person.xHandle ? (
             <a
@@ -356,6 +368,49 @@ function StoryDetail({ id, data }: { id: number; data: ConsoleData }) {
   );
 }
 
+function ProfileDetail({ id, data }: { id: number; data: ConsoleData }) {
+  const ctl = useCtl();
+  const timeZone = useConsole((s) => s.timeZone);
+  const profile = data.profiles.find((p) => p.id === id);
+  if (!profile) return <Missing />;
+  const inNews = data.people.find((p) => p.linkedinUrl === profile.url || p.name.toLowerCase() === profile.name.toLowerCase());
+  return (
+    <>
+      <div className="px-5 pt-1 pb-4">
+        <h2 className="text-[20px] leading-tight font-semibold tracking-tight">{profile.name}</h2>
+        {profile.headline ? <p className="mt-1 text-[13px] text-fg-2">{profile.headline}</p> : null}
+        {profile.company || profile.location ? (
+          <p className="mt-0.5 text-[12.5px] text-fg-3">{[profile.company, profile.location].filter(Boolean).join(" · ")}</p>
+        ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <OpenButton href={profile.url} label="Open LinkedIn profile" />
+          {inNews ? (
+            <button
+              type="button"
+              onClick={() => ctl.open({ kind: "person", id: inNews.id })}
+              className="inline-flex h-8 items-center rounded-lg border border-line bg-panel-2 px-3 text-[13px] text-fg hover:border-line-2"
+            >
+              Also in the news
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {profile.about ? (
+        <Section title="From their profile">
+          <p className="text-[13.5px] leading-relaxed text-fg-2">{profile.about}</p>
+        </Section>
+      ) : null}
+      <Section title="How Radar found them">
+        <p className="text-[13px] text-fg-2">
+          Their public profile matched the people search{" "}
+          <code className="font-mono text-[12px] text-fg">{profile.matchedQuery ?? "for this topic"}</code>. First seen{" "}
+          {formatDateTime(profile.firstSeenAt, timeZone)}.
+        </p>
+      </Section>
+    </>
+  );
+}
+
 function Missing() {
   return <div className="px-5 py-8 text-[13px] text-fg-3">This is no longer in the current data.</div>;
 }
@@ -374,10 +429,19 @@ function Body({ selection, data }: { selection: Selection; data: ConsoleData }) 
       return <OrgDetail id={selection.id} data={data} />;
     case "source":
       return <SourceDetail id={selection.id} data={data} />;
+    case "profile":
+      return <ProfileDetail id={selection.id} data={data} />;
   }
 }
 
-const KIND_TITLES: Record<Selection["kind"], string> = { item: "Item", story: "Story", person: "Person", org: "Organization", source: "Source" };
+const KIND_TITLES: Record<Selection["kind"], string> = {
+  item: "Item",
+  story: "Story",
+  person: "Person",
+  org: "Organization",
+  source: "Source",
+  profile: "LinkedIn profile",
+};
 
 export function Drawer() {
   const ctl = useCtl();

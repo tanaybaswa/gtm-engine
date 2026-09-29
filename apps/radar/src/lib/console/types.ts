@@ -7,18 +7,20 @@ import type { TopicConfig } from "@/lib/topics/types";
 
 export const STREAMS = [
   { id: "news", label: "News", hint: "News searches and general publications" },
+  { id: "linkedin", label: "LinkedIn", hint: "Public LinkedIn posts and articles that Google has found" },
   { id: "trade", label: "Trade press", hint: "Industry publications" },
   { id: "legal", label: "Legal and regulatory", hint: "Law firms, regulators and courts" },
   { id: "companies", label: "Companies and wires", hint: "Company blogs and press releases" },
   { id: "research", label: "Research and newsletters", hint: "Research groups, newsletters, podcasts and blogs" },
-  { id: "social", label: "Social and community", hint: "X, LinkedIn, Reddit and Hacker News" },
+  { id: "social", label: "Social and community", hint: "X, Reddit and Hacker News" },
 ] as const;
 export type StreamId = (typeof STREAMS)[number]["id"];
 
-const SOCIAL_CONNECTORS = new Set(["x", "linkedin", "reddit", "hacker_news"]);
+const SOCIAL_CONNECTORS = new Set(["x", "reddit", "hacker_news"]);
 
-/** Which stream an item belongs to: social connectors first, then the kind of source it came from. */
+/** Which stream an item belongs to: LinkedIn and social connectors first, then the kind of source. */
 export function streamOf(source: string, kind: string | null | undefined): StreamId {
+  if (source === "linkedin") return "linkedin";
   if (SOCIAL_CONNECTORS.has(source)) return "social";
   switch (kind) {
     case "trade_press":
@@ -62,6 +64,7 @@ export const CONNECTOR_LABELS: Record<string, string> = {
   hacker_news: "Hacker News",
   reddit: "Reddit",
   serper_news: "Serper (news and LinkedIn)",
+  linkedin_people: "LinkedIn people (Serper)",
   x: "X",
 };
 
@@ -118,6 +121,7 @@ export type PersonDTO = {
   role: string | null;
   orgName: string | null;
   linkedinUrl: string | null;
+  linkedinHeadline: string | null;
   xHandle: string | null;
   watched: boolean;
   lastSeenAt: string;
@@ -138,6 +142,21 @@ export type OrgDTO = {
   mentions: number;
   relations: Record<string, number>;
   itemIds: number[];
+};
+
+/** Someone whose public LinkedIn profile matched one of the topic's people searches. */
+export type ProfileDTO = {
+  id: number;
+  vanity: string;
+  url: string;
+  name: string;
+  headline: string | null;
+  company: string | null;
+  location: string | null;
+  about: string | null;
+  matchedQuery: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
 };
 
 export type SourceDTO = {
@@ -203,6 +222,7 @@ export type ConsoleData = {
   briefDates: string[];
   people: PersonDTO[];
   orgs: OrgDTO[];
+  profiles: ProfileDTO[];
   sources: SourceDTO[];
   runs: RunDTO[];
   spend: SpendDTO;

@@ -32,6 +32,9 @@ export function isSignal(item: ItemDTO, data: ConsoleData): boolean {
   return (item.relevance ?? -1) >= data.topic.config.relevanceThreshold;
 }
 
+/** What the Signal filter keeps. LinkedIn searches are narrow, so their posts show until Claude scores them. */
+export const passesSignal = (item: ItemDTO, data: ConsoleData): boolean => isSignal(item, data) || (item.source === "linkedin" && item.relevance === null);
+
 /** The filters in the top bar: time range, signal only, and search. */
 export function useFilteredItems(data: ConsoleData | undefined): ItemDTO[] {
   const range = useConsole((s) => s.range);
@@ -47,7 +50,7 @@ export function useFilteredItems(data: ConsoleData | undefined): ItemDTO[] {
     return data.items.filter(
       (item) =>
         inRange(item, range, now) &&
-        (!signal || isSignal(item, data)) &&
+        (!signal || passesSignal(item, data)) &&
         matches(query, item.title, item.outlet, item.gist, item.author, item.sourceKey, ...item.people.map((p) => p.name)),
     );
   }, [data, range, signalOnly, query, minute]);

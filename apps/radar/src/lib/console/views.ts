@@ -3,6 +3,7 @@ export const VIEWS = [
   { id: "panel", label: "Panel", hint: "Every stream side by side" },
   { id: "brief", label: "Brief", hint: "The morning brief" },
   { id: "stream", label: "Stream", hint: "Everything, newest first" },
+  { id: "linkedin", label: "LinkedIn", hint: "LinkedIn posts and the people behind them" },
   { id: "people", label: "People", hint: "Who is behind the news" },
   { id: "sources", label: "Sources", hint: "Where stories start" },
   { id: "health", label: "Health", hint: "Runs, sources and spend" },

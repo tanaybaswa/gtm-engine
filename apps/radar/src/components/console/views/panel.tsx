@@ -126,10 +126,11 @@ function StreamColumn({ stream, items, total, data }: { stream: (typeof STREAMS)
   const Icon = STREAM_ICONS[stream.id];
   // With the signal filter on, every visible item is signal; the count alone says it.
   const signal = signalOnly && data.totals.scored > 0 ? 0 : items.filter((i) => isSignal(i, data)).length;
-  // Opening a column in the Stream view narrows the stream to it.
+  // LinkedIn has its own view; any other column opens in the Stream view, narrowed to it.
+  const linkedIn = stream.id === "linkedin";
   const openStream = () => {
-    store.set({ streamFilter: [stream.id] });
-    ctl.setView("stream");
+    if (!linkedIn) store.set({ streamFilter: [stream.id] });
+    ctl.setView(linkedIn ? "linkedin" : "stream");
   };
   return (
     <section className="surface flex min-h-0 w-full shrink-0 flex-col rounded-xl lg:min-w-[272px] lg:flex-1 lg:snap-start">
@@ -145,8 +146,8 @@ function StreamColumn({ stream, items, total, data }: { stream: (typeof STREAMS)
             type="button"
             onClick={openStream}
             className="inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-3 hover:bg-panel-2 hover:text-fg"
-            aria-label={`Open ${stream.label} in the stream`}
-            title="Open in the stream"
+            aria-label={linkedIn ? "Open the LinkedIn view" : `Open ${stream.label} in the stream`}
+            title={linkedIn ? "Open the LinkedIn view" : "Open in the stream"}
           >
             <Maximize2 size={12} />
           </button>

@@ -1,15 +1,15 @@
 "use client";
 
-import { CornerDownLeft, FolderPlus, Keyboard, LogOut, Moon, Play, Search, Sun, Target, type LucideIcon } from "lucide-react";
+import { CornerDownLeft, FolderPlus, Keyboard, LogOut, Moon, Play, Search, Sun, Target } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { logout } from "@/app/actions";
 import { VIEWS } from "@/lib/console/views";
 import { itemTime } from "./format";
-import { STREAM_ICONS, VIEW_ICONS } from "./icons";
+import { STREAM_ICONS, VIEW_ICONS, type IconComponent } from "./icons";
 import { useConsole, useCtl, useStore, useTopicData } from "./store";
 import { Kbd, TimeAgo } from "./ui";
 
-type Command = { id: string; group: string; label: string; hint?: ReactNode; icon: LucideIcon; run: () => void };
+type Command = { id: string; group: string; label: string; hint?: ReactNode; icon: IconComponent; run: () => void };
 
 export function Palette() {
   const open = useConsole((s) => s.palette);

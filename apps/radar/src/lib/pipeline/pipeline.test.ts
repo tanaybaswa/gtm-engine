@@ -226,6 +226,40 @@ describe("console data", () => {
   });
 });
 
+describe("serper searches", () => {
+  it("retries a refused search in a simpler form, and counts only searches that ran", async () => {
+    const { serperSearch } = await import("@/lib/sources/serper-client");
+    const { getUsage } = await import("@/lib/usage");
+    const saved = process.env.SERPER_API_KEY;
+    process.env.SERPER_API_KEY = "test-key";
+    const bodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        bodies.push(String(init.body));
+        return bodies.length < 3
+          ? new Response(JSON.stringify({ message: "Query pattern not allowed for free accounts.", statusCode: 400 }), { status: 400 })
+          : new Response(JSON.stringify({ organic: [] }), { status: 200 });
+      }),
+    );
+    try {
+      const before = await getUsage("serper_queries");
+      const result = await serperSearch("search", 'site:linkedin.com/posts "AI liability" insurance', { tbs: "qdr:w" });
+      expect(result?.ranAs).toBe('site:linkedin.com/posts "AI liability"');
+      expect(bodies.map((b) => JSON.parse(b))).toMatchObject([
+        { q: 'site:linkedin.com/posts "AI liability" insurance', tbs: "qdr:w", num: 10 },
+        { q: 'site:linkedin.com/posts "AI liability" insurance', num: 10 },
+        { q: 'site:linkedin.com/posts "AI liability"', num: 10 },
+      ]);
+      expect(await getUsage("serper_queries")).toBe(before + 1);
+    } finally {
+      vi.unstubAllGlobals();
+      if (saved === undefined) delete process.env.SERPER_API_KEY;
+      else process.env.SERPER_API_KEY = saved;
+    }
+  });
+});
+
 describe("prompts", () => {
   it("never contain em dashes", async () => {
     const { analystSystemPrompt, briefPrompt, extractPrompt, triagePrompt } = await import("@/lib/ai/prompts");
