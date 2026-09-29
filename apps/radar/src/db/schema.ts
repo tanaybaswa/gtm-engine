@@ -35,7 +35,17 @@ export type ConnectorStat = {
   ms: number;
 };
 
+/** Where a run is right now, for the live status in the console. */
+export type RunProgress = {
+  phase: "collect" | "score" | "read" | "brief";
+  done?: number;
+  total?: number;
+  detail?: string;
+  at: string;
+};
+
 export type RunStats = {
+  progress?: RunProgress;
   connectors?: Record<string, ConnectorStat>;
   prefiltered?: number;
   triaged?: number;

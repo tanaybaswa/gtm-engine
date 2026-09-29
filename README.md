@@ -99,7 +99,7 @@ One place to see what exists and where it stands. Add a row when you start an ex
 
 | Experiment | Goal | Status | What it does |
 | --- | --- | --- | --- |
-| [Radar](apps/radar) | Find leads, Get insights, Always on | prototype | Morning brief on AI liability insurance, traced to the original sources and the people behind them |
+| [Radar](apps/radar) | Find leads, Get insights, Always on | prototype | A live console for any market: every source in one view, and a morning brief traced to the original sources and the people behind them. First topic: AI liability insurance |
 
 ### Lifecycle
 

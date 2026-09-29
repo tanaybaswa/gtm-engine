@@ -1,8 +1,10 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { runs, type Run, type RunStage, type RunStats } from "@/db/schema";
+import { runs, type Run, type RunProgress, type RunStage, type RunStats } from "@/db/schema";
 
 export type Trigger = "cron" | "manual" | "cli";
+
+export type ProgressUpdate = Omit<RunProgress, "at">;
 
 export async function startRun(topicId: number, stage: RunStage, trigger: Trigger): Promise<Run> {
   const db = await getDb();
@@ -21,6 +23,12 @@ export async function finishRun(
     .update(runs)
     .set({ status, stats, error: error ?? null, finishedAt: new Date() })
     .where(eq(runs.id, runId));
+}
+
+/** Stores where a run is, so the console can show it live. */
+export async function saveRunProgress(runId: number, progress: RunProgress): Promise<void> {
+  const db = await getDb();
+  await db.update(runs).set({ stats: { progress } }).where(eq(runs.id, runId));
 }
 
 export async function recentRuns(topicId: number, limit = 15): Promise<Run[]> {

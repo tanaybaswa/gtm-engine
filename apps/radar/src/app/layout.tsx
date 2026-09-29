@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -10,10 +11,17 @@ export const metadata: Metadata = {
   description: "Market radar: the sources and people behind the news, every morning.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export const viewport: Viewport = {
+  themeColor: "#06080c",
+  colorScheme: "dark light",
+};
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // The theme lives in a cookie so the first paint is already in the right colors.
+  const theme = (await cookies()).get("radar-theme")?.value === "light" ? "light" : "dark";
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">{children}</body>
+    <html lang="en" data-theme={theme} className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="h-full">{children}</body>
     </html>
   );
 }

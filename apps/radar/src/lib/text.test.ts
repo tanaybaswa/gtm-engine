@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aiLiabilityInsurance } from "./topics/defaults";
 import { compileKeywordFilter, orgKey, personKey, splitOutletSuffix, stripHtml, titleKey } from "./text";
-import { canonicalizeUrl, domainOf } from "./url";
+import { canonicalizeUrl, domainOf, isPublicHttpUrl } from "./url";
 
 describe("canonicalizeUrl", () => {
   it("drops tracking params, www, fragments and trailing slashes", () => {
@@ -65,5 +65,18 @@ describe("keyword filter for the default topic", () => {
 
   it("excludes consumer quote spam", () => {
     expect(filter.excluded("Get AI-powered car insurance quotes in minutes")).toBe(true);
+  });
+});
+
+describe("isPublicHttpUrl", () => {
+  it("accepts public web addresses and refuses local or internal ones", () => {
+    expect(isPublicHttpUrl("https://www.example.com/feed/")).toBe(true);
+    expect(isPublicHttpUrl("http://news.example.co.uk/rss.xml")).toBe(true);
+    expect(isPublicHttpUrl("ftp://example.com/feed")).toBe(false);
+    expect(isPublicHttpUrl("http://localhost:3000/feed")).toBe(false);
+    expect(isPublicHttpUrl("http://169.254.169.254/latest")).toBe(false);
+    expect(isPublicHttpUrl("http://[::1]/feed")).toBe(false);
+    expect(isPublicHttpUrl("http://intranet/feed")).toBe(false);
+    expect(isPublicHttpUrl("http://db.internal/feed")).toBe(false);
   });
 });

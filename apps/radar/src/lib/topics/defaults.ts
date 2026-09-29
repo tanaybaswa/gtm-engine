@@ -228,6 +228,16 @@ export const aiLiabilityInsurance: TopicSeed = {
         "Risto Uuk",
       ],
     },
+    guide: {
+      relevance: [
+        "80-100: directly about insuring or transferring AI risk: AI liability products and launches, affirmative AI cover or AI exclusions, tech E&O or cyber wordings that address AI, underwriting AI systems, AI warranties and performance guarantees, capacity, pricing, claims or losses involving AI.",
+        "55-79: closely adjacent and useful: AI incidents, litigation or regulation that creates liability exposure; research that quantifies AI risk; insurers' AI governance when it concerns liability or regulation; people moves at AI insurance players.",
+        "20-54: loosely related: AI used inside insurance operations (claims automation, underwriting productivity) with no liability or risk-transfer angle; general AI regulation with no insurance angle.",
+        "0-19: off-topic, spam, consumer insurance quotes, or pages that are not news or commentary.",
+      ].join("\n"),
+      audience: "a go-to-market team selling into the AI liability insurance market",
+      orgs: "insurers, reinsurers, MGAs, Lloyd's syndicates, brokers, insurtechs, AI companies, regulators, standards bodies, law firms and research groups",
+    },
     lookbackHours: 36,
     relevanceThreshold: 55,
   },

@@ -61,3 +61,12 @@ export function isHttpUrl(input: string | null | undefined): input is string {
     return false;
   }
 }
+
+/** An http(s) URL on a public host name: no IP addresses, localhost or internal names. */
+export function isPublicHttpUrl(input: string | null | undefined): input is string {
+  if (!isHttpUrl(input)) return false;
+  const host = new URL(input).hostname.toLowerCase();
+  if (!host.includes(".") || host.endsWith(".local") || host.endsWith(".internal") || host === "localhost") return false;
+  // IPv4 literals and bracketed IPv6 literals.
+  return !/^\d{1,3}(\.\d{1,3}){3}$/.test(host) && !host.startsWith("[");
+}

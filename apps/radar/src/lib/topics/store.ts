@@ -21,9 +21,13 @@ export async function ensureDefaultTopics(): Promise<void> {
 }
 
 export async function listTopics(): Promise<Topic[]> {
-  await ensureDefaultTopics();
   const db = await getDb();
-  const rows = await db.select().from(topics).orderBy(asc(topics.id));
+  let rows = await db.select().from(topics).orderBy(asc(topics.id));
+  // A new database starts with the default topics; after that, reads never write.
+  if (!rows.length) {
+    await ensureDefaultTopics();
+    rows = await db.select().from(topics).orderBy(asc(topics.id));
+  }
   return rows.map((t) => ({ ...t, config: topicConfigSchema.parse(t.config) }));
 }
 
