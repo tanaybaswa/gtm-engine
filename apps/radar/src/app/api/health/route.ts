@@ -1,42 +1,68 @@
-import { sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
+import { runs } from "@/db/schema";
+import { getConsoleData, getTopicSummaries, toRunDTO } from "@/lib/console/data";
+import { neonRegion } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
-/** "ep-name-123.us-east-2.aws.neon.tech" -> "aws-us-east-2". The host itself stays private. */
-function databaseRegion(): string | null {
-  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-  if (!url) return null;
-  try {
-    const parts = new URL(url).hostname.split(".");
-    return parts.length >= 4 ? `${parts[2]}-${parts[1]}` : null;
-  } catch {
-    return null;
-  }
-}
-
-// Public and cheap: is the database reachable, how far away is it, and where does this run.
+// Public, for uptime checks: is the database reachable and how far away, can the console's
+// data be read, and how did the last scheduled run go. Only timings and statuses leave this
+// endpoint: no hosts, topic names or content.
 export async function GET() {
   const started = Date.now();
   const region = process.env.VERCEL_REGION ?? null;
+  const dbRegion = neonRegion(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+  const headers = { "cache-control": "no-store" };
+
+  let db;
   try {
-    const db = await getDb();
+    db = await getDb();
+  } catch (error) {
+    console.error("Health check: database connection failed:", error);
+    return Response.json({ ok: false, region, db: { region: dbRegion, error: "database unreachable" } }, { status: 503, headers });
+  }
+
+  let database;
+  try {
     const first = Date.now();
     await db.execute(sql`select 1`);
-    const firstMs = Date.now() - first;
+    const firstQueryMs = Date.now() - first;
     const second = Date.now();
     await db.execute(sql`select 1`);
-    const warmMs = Date.now() - second;
-    return Response.json(
-      { ok: true, region, db: { region: databaseRegion(), firstQueryMs: firstMs, warmQueryMs: warmMs }, totalMs: Date.now() - started },
-      { headers: { "cache-control": "no-store" } },
-    );
+    database = { ok: true, region: dbRegion, firstQueryMs, warmQueryMs: Date.now() - second };
   } catch (error) {
-    // Details stay in the logs; this endpoint is public.
-    console.error("Health check failed:", error);
-    return Response.json(
-      { ok: false, region, db: { region: databaseRegion(), error: "database unreachable" } },
-      { status: 503, headers: { "cache-control": "no-store" } },
-    );
+    console.error("Health check: database query failed:", error);
+    database = { ok: false, region: dbRegion, error: "database unreachable" };
   }
+
+  // The same cached reads the signed-in console makes on its first screen.
+  let consoleData;
+  try {
+    const t = Date.now();
+    const summaries = await getTopicSummaries();
+    const topic = summaries.topics.find((x) => x.active) ?? summaries.topics[0];
+    const data = topic ? await getConsoleData(topic.id) : null;
+    consoleData = { ok: Boolean(data), ms: Date.now() - t, topics: summaries.topics.length };
+  } catch (error) {
+    console.error("Health check: console data failed:", error);
+    consoleData = { ok: false, error: "console data unavailable" };
+  }
+
+  let lastScheduledRun = null;
+  try {
+    const [run] = await db.select().from(runs).where(eq(runs.trigger, "cron")).orderBy(desc(runs.startedAt)).limit(1);
+    if (run) {
+      const dto = toRunDTO(run);
+      lastScheduledRun = { stage: dto.stage, status: dto.status, startedAt: dto.startedAt, finishedAt: dto.finishedAt };
+    }
+  } catch (error) {
+    console.error("Health check: run lookup failed:", error);
+  }
+
+  const ok = database.ok && consoleData.ok;
+  return Response.json(
+    { ok, region, db: database, console: consoleData, lastScheduledRun, totalMs: Date.now() - started },
+    { status: ok ? 200 : 503, headers },
+  );
 }
