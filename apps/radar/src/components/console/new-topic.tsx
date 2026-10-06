@@ -96,7 +96,7 @@ function Dialog() {
             {STEPS.map((label, i) => (
               <li key={label} className={`flex items-center gap-3 text-[13.5px] ${i < step ? "text-fg-2" : i === step ? "text-fg" : "text-fg-3"}`}>
                 <span className="inline-flex h-5 w-5 items-center justify-center">
-                  {i < step ? <Check size={15} className="text-accent" /> : i === step ? <LoaderCircle size={15} className="animate-spin text-accent" /> : <span className="h-1.5 w-1.5 rounded-full bg-line-2" />}
+                  {i < step ? <Check size={15} className="text-good" /> : i === step ? <LoaderCircle size={15} className="animate-spin text-accent" /> : <span className="h-1.5 w-1.5 rounded-full bg-line-2" />}
                 </span>
                 {label}
               </li>

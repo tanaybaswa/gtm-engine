@@ -35,7 +35,7 @@ export default async function ConsolePage({ searchParams }: PageProps<"/">) {
   ]);
   const fallback = summaries.topics.find((t) => t.active) ?? summaries.topics[0];
   const data = requestedData ?? (fallback ? await getConsoleData(fallback.id) : null);
-  const theme = (await cookies()).get("radar-theme")?.value === "light" ? "light" : "dark";
+  const theme = (await cookies()).get("radar-theme")?.value === "dark" ? "dark" : "light";
   const serverNow = await requestTime();
 
   return (

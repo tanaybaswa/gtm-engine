@@ -23,7 +23,7 @@ export function FollowButton({ source }: { source: SourceDTO }) {
         setBusy(false);
       }}
       className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-colors disabled:opacity-60 ${
-        source.followed ? "bg-accent-soft text-accent hover:brightness-125" : "border border-line text-fg-2 hover:border-line-2 hover:text-fg"
+        source.followed ? "bg-accent-soft text-fg hover:ring-1 hover:ring-line-2" : "border border-line text-fg-2 hover:border-line-2 hover:text-fg"
       }`}
       title={source.followed ? "The topic collects from this source directly. Click to stop." : "Collect from this source directly on every run"}
     >
@@ -121,7 +121,7 @@ export function SourcesView() {
                     </td>
                     <td className="text-right font-mono tabular-nums">{s.relevant}</td>
                     <td className="text-right">
-                      <span className="font-mono text-fg tabular-nums">{s.origins}</span>
+                      <span className={`font-mono tabular-nums ${s.origins ? "font-medium text-good" : "text-fg-3"}`}>{s.origins}</span>
                       {s.origins ? <span className="ml-1 font-mono text-[11px] text-fg-3">{rate}%</span> : null}
                     </td>
                     <td className="hidden text-fg-3 lg:table-cell">

@@ -51,7 +51,7 @@ export function RunProgressPanel({ run }: { run: RunDTO }) {
   const currentIndex = phases.findIndex((p) => p.id === current);
   const fraction = run.progress?.total ? Math.min(1, (run.progress.done ?? 0) / run.progress.total) : null;
   return (
-    <div className="rounded-xl border border-accent/30 bg-accent-soft/40 p-4">
+    <div className="rounded-xl border border-line-2 bg-panel-2 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[13px] font-medium">
           <span className="relative flex h-2 w-2">
@@ -170,12 +170,12 @@ export function HealthView() {
                       {stat.skipped ? (
                         <span className="text-fg-3">Off: {stat.skipped}</span>
                       ) : stat.error ? (
-                        <span className="break-anywhere text-warn" title={stat.error}>
+                        <span className="break-anywhere text-bad" title={stat.error}>
                           {stat.error.slice(0, 160)}
                         </span>
                       ) : (
                         <>
-                          <span className="text-good">OK · {(stat.ms / 1000).toFixed(1)}s</span>
+                          <span className="font-medium text-good">OK · {(stat.ms / 1000).toFixed(1)}s</span>
                           {stat.info ? <span className="block text-fg-3">{stat.info}</span> : null}
                         </>
                       )}

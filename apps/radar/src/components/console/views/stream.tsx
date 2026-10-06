@@ -103,7 +103,7 @@ export function StreamView() {
                 }`}
               >
                 <span className="flex items-center gap-2 whitespace-nowrap">
-                  <Icon size={14} /> {s.label}
+                  <Icon size={14} className={s.id === "linkedin" ? "text-people" : ""} /> {s.label}
                 </span>
                 <span className="font-mono text-[11px] text-fg-3 tabular-nums">{counts[s.id] ?? 0}</span>
               </button>
@@ -112,7 +112,7 @@ export function StreamView() {
         </div>
         <div className="hidden space-y-1 border-t border-line p-3 lg:block">
           <div className="label px-2 pb-1">Show</div>
-          <Toggle checked={originsOnly} onChange={(v) => store.set({ originsOnly: v })} label="Origins only" hint="Items judged to be the original source" />
+          <Toggle good checked={originsOnly} onChange={(v) => store.set({ originsOnly: v })} label="Origins only" hint="Items judged to be the original source" />
           <div className="px-2 pt-4 text-[11.5px] leading-relaxed text-fg-3">
             <div className="mb-1.5 flex items-center gap-1.5">
               <Kbd>j</Kbd>
@@ -135,7 +135,7 @@ export function StreamView() {
           </span>
           <div className="flex items-center gap-2">
             <div className="lg:hidden">
-              <Toggle checked={originsOnly} onChange={(v) => store.set({ originsOnly: v })} label="Origins" />
+              <Toggle good checked={originsOnly} onChange={(v) => store.set({ originsOnly: v })} label="Origins" />
             </div>
             <Segmented
               label="Sort"

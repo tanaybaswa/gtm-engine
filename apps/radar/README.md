@@ -45,6 +45,17 @@ Clicking anything opens its details on the right: an item's summary and primary 
 
 The top bar filters every view (search, time range, signal only), and **Run now** starts a run you can watch step by step.
 
+The console is white, with black for buttons and selection, and four colors that each mean one thing, so a glance says where to look:
+
+| Color | Means | Where |
+| --- | --- | --- |
+| Green | Signal: worth your time | Scores at or above the topic's threshold, origins, signal counts, healthy runs |
+| Blue | People: who is behind it | People, quotes, LinkedIn posts and profiles |
+| Yellow | New or watched: needs a look | Items Claude hasn't scored yet, starred people, runs that partly failed |
+| Red | A problem | Errors, failed sources, spend near a cap |
+
+The key sits at the bottom of the rail and in the **?** dialog. A dark theme is one click away in the rail.
+
 | Keys | Action |
 | --- | --- |
 | ⌘K or Ctrl+K | Search items, people and sources, or run a command |

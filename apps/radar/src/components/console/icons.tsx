@@ -69,14 +69,14 @@ export const VIEW_ICONS: Record<ViewId, IconComponent> = {
   settings: Settings,
 };
 
-/** The Radar mark: rings and a sweep that turns while a run is going. */
+/** The Radar mark: rings, a sweep that turns while a run is going, and a green dot for signal. */
 export function RadarMark({ live = false, size = 22 }: { live?: boolean; size?: number }) {
   return (
     <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} aria-hidden>
       <svg viewBox="0 0 24 24" width={size} height={size} className="text-accent">
         <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.2" />
         <circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.2" />
-        <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+        <circle cx="12" cy="12" r="2.4" fill="var(--good-fill)" />
       </svg>
       <span
         className={`absolute inset-0 rounded-full ${live ? "animate-sweep" : ""}`}

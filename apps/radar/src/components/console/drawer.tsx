@@ -80,7 +80,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
           <div className="mt-1 text-[12.5px] text-fg-2">
             By{" "}
             {item.authorUrl ? (
-              <a href={item.authorUrl} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
+              <a href={item.authorUrl} target="_blank" rel="noopener noreferrer" className="text-people decoration-fg-3/40 underline-offset-[3px] hover:underline">
                 {author}
               </a>
             ) : (
@@ -91,7 +91,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <RelevanceMeter value={item.relevance} threshold={threshold} />
           {item.isOrigin ? (
-            <Badge tone="accent">
+            <Badge tone="good" title="Origin: where the story started">
               <CircleDot size={10} /> Origin
             </Badge>
           ) : null}
@@ -107,7 +107,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
           <p className="text-[13.5px] leading-relaxed text-fg-2">{item.summary ?? item.gist ?? item.snippet}</p>
           {item.whyItMatters ? (
             <p className="mt-3 text-[13.5px] leading-relaxed">
-              <span className="label mr-2 !text-accent">Why it matters</span>
+              <span className="label mr-2 !text-fg-2">Why it matters</span>
               {item.whyItMatters}
             </p>
           ) : null}
@@ -130,7 +130,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
                 </Badge>
                 <span className="min-w-0 break-anywhere">
                   {p.url ? (
-                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-fg hover:text-accent-strong">
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-fg decoration-fg-3/40 underline-offset-[3px] hover:underline">
                       {p.title} <ArrowUpRight size={11} className="inline text-fg-3" />
                     </a>
                   ) : (
@@ -162,7 +162,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
           <ul className="space-y-1">
             {inStories.map((s) => (
               <li key={s.id}>
-                <button type="button" onClick={() => ctl.open({ kind: "story", id: s.id })} className="text-left text-[13px] text-fg hover:text-accent-strong">
+                <button type="button" onClick={() => ctl.open({ kind: "story", id: s.id })} className="text-left text-[13px] text-fg decoration-fg-3/40 underline-offset-[3px] hover:underline">
                   {s.title}
                 </button>
                 <span className="ml-2 font-mono text-[11px] text-fg-3">{s.briefDate}</span>
@@ -228,7 +228,7 @@ function PersonDetail({ id, data }: { id: number; data: ConsoleData }) {
               const item = index.get(m.itemId);
               return (
                 <li key={`${m.itemId}-${m.relation}`} className="rounded-lg border border-line bg-panel-2/60 p-3">
-                  <Quote size={13} className="mb-1 text-accent" />
+                  <Quote size={13} className="mb-1 text-people" />
                   <p className="text-[13.5px] leading-relaxed text-fg">{m.quote}</p>
                   {item ? <div className="mt-1.5 truncate text-[12px] text-fg-3">{item.outlet ?? item.sourceKey} · {item.title}</div> : null}
                 </li>
@@ -274,7 +274,11 @@ function OrgDetail({ id, data }: { id: number; data: ConsoleData }) {
           <ul className="space-y-1.5">
             {colleagues.map((p) => (
               <li key={p.id}>
-                <button type="button" onClick={() => ctl.open({ kind: "person", id: p.id })} className="text-left text-[13px] text-fg hover:text-accent-strong">
+                <button
+                  type="button"
+                  onClick={() => ctl.open({ kind: "person", id: p.id })}
+                  className="text-left text-[13px] font-medium text-people decoration-people/40 underline-offset-[3px] hover:underline"
+                >
                   {p.name}
                 </button>
                 {p.role ? <span className="ml-2 text-[12px] text-fg-3">{p.role}</span> : null}

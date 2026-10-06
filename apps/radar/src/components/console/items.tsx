@@ -33,18 +33,18 @@ export const ItemCompact = memo(function ItemCompact({ item, threshold }: { item
           <div className="flex min-w-0 items-center gap-2">
             <RelevanceMeter value={item.relevance} threshold={threshold} />
             {item.isOrigin ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-accent" title="The original source">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-good" title="Origin: where the story started">
                 <CircleDot size={11} /> Origin
               </span>
             ) : null}
           </div>
           <TimeAgo iso={itemTime(item)} className="font-mono text-[10.5px] text-fg-3" />
         </div>
-        <div className="mt-1 line-clamp-2 text-[13px] leading-snug font-medium text-fg group-hover:text-accent-strong">{item.title}</div>
+        <div className="mt-1 line-clamp-2 text-[13px] leading-snug font-medium text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{item.title}</div>
         <div className="mt-1 flex items-center justify-between gap-2 text-[11.5px] text-fg-3">
           <span className="truncate">{item.outlet ?? item.sourceKey}</span>
           {item.people.length ? (
-            <span className="inline-flex shrink-0 items-center gap-1" title={item.people.map((p) => p.name).join(", ")}>
+            <span className="inline-flex shrink-0 items-center gap-1 text-people" title={item.people.map((p) => p.name).join(", ")}>
               <Users size={11} /> {item.people.length}
             </span>
           ) : null}
@@ -104,17 +104,21 @@ export const ItemRow = memo(function ItemRow({
             ) : null}
             <span className="rounded border border-line px-1 font-mono text-[10px] leading-4 text-fg-3">{SOURCE_LABELS[item.source] ?? item.source}</span>
           </div>
-          <div className="mt-1 text-[14px] leading-snug font-medium text-fg group-hover:text-accent-strong">{item.title}</div>
+          <div className="mt-1 text-[14px] leading-snug font-medium text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{item.title}</div>
           {blurb ? <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-fg-2">{blurb}</p> : null}
           {item.people.length ? (
-            <div className="mt-1.5 truncate text-[12px] text-fg-3">
+            <div className="mt-1.5 truncate text-[12px] text-people">
               <Users size={11} className="mr-1 inline" />
               {item.people.map((p) => p.name).join(", ")}
             </div>
           ) : null}
         </div>
         <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
-          {item.isOrigin ? <Badge tone="accent">Origin</Badge> : null}
+          {item.isOrigin ? (
+            <Badge tone="good" title="Origin: where the story started">
+              <CircleDot size={10} /> Origin
+            </Badge>
+          ) : null}
           {item.category && item.category !== "other" ? <Badge>{CATEGORY_LABELS[item.category] ?? item.category}</Badge> : null}
           <a
             href={item.href}
@@ -147,7 +151,7 @@ export function ItemMini({ item, threshold, note }: { item: ItemDTO; threshold: 
           <RelevanceMeter value={item.relevance} threshold={threshold} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] leading-snug text-fg group-hover:text-accent-strong">{item.title}</span>
+          <span className="block text-[13px] leading-snug text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{item.title}</span>
           <span className="mt-0.5 block truncate text-[11.5px] text-fg-3">
             {[item.outlet ?? item.sourceKey, note].filter(Boolean).join(" · ")} · <TimeAgo iso={itemTime(item)} />
           </span>
