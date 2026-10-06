@@ -206,6 +206,24 @@ function FeedsEditor({ feeds, onChange }: { feeds: FeedConfig[]; onChange: (v: F
   );
 }
 
+/** A whole-number setting that can't go below zero. */
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="block text-[12px] text-fg-2">
+      {label}
+      <input
+        type="number"
+        min={0}
+        step={1}
+        inputMode="numeric"
+        className={`${input} mt-1`}
+        value={value}
+        onChange={(e) => onChange(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+      />
+    </label>
+  );
+}
+
 function OutcomeLine({ result }: { result: SearchResultDTO | undefined }) {
   if (!result) return <span className="text-fg-3">Not run yet. It runs with the next collection.</span>;
   if (result.error) return <span className="text-bad">{result.error}</span>;
@@ -239,6 +257,8 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
   const data = useTopicData();
   const serperOn = data?.spend.serper.enabled ?? false;
   const youtubeOn = data?.spend.youtube.enabled ?? false;
+  const setYouTube = (patch: Partial<TopicConfig["queries"]["youtube"]>) =>
+    setConfig((x) => ({ ...x, queries: { ...x.queries, youtube: { ...x.queries.youtube, ...patch } } }));
   const searches = data?.searches;
   // Each search's latest result: news:<search>, posts:<search>, #<tag> and people:<search>.
   const outcome = (prefix: string) => (serperOn ? (value: string) => <OutcomeLine result={searches?.[`${prefix}${value}`]} /> : undefined);
@@ -424,6 +444,73 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
               onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, youtube: { ...x.queries.youtube, channels: v } } }))}
             />
           </Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Search window" hint="How far back searches look. Niche topics find their best videos over months.">
+              <select className={input} value={q.youtube.windowDays} onChange={(e) => setYouTube({ windowDays: Number(e.target.value) })}>
+                {[
+                  [7, "Past week"],
+                  [30, "Past month"],
+                  [90, "Past 3 months"],
+                  [365, "Past year"],
+                  [0, "Any time"],
+                ].map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Order" hint="Most viewed brings up bigger channels. Both runs each search twice.">
+              <select className={input} value={q.youtube.order} onChange={(e) => setYouTube({ order: e.target.value as TopicConfig["queries"]["youtube"]["order"] })}>
+                <option value="relevance">Most relevant</option>
+                <option value="viewCount">Most viewed</option>
+                <option value="date">Newest</option>
+                <option value="both">Most relevant and most viewed</option>
+              </select>
+            </Field>
+            <Field label="Results per search" hint="Up to 50 cost the same as 25.">
+              <select className={input} value={q.youtube.maxResults} onChange={(e) => setYouTube({ maxResults: Number(e.target.value) })}>
+                {[10, 25, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <div>
+            <div className="text-[13px] font-medium">Keep only</div>
+            <p className="mt-0.5 text-[12px] text-fg-3">Videos below these aren&apos;t collected. Followed channels skip the subscriber floor. 0 keeps everything.</p>
+            <div className="mt-2 grid gap-4 sm:grid-cols-3">
+              <NumberField label="Views at least" value={q.youtube.minViews} onChange={(minViews) => setYouTube({ minViews })} />
+              <NumberField label="Channel subscribers at least" value={q.youtube.minSubscribers} onChange={(minSubscribers) => setYouTube({ minSubscribers })} />
+              <NumberField label="Minutes long at least" value={q.youtube.minMinutes} onChange={(minMinutes) => setYouTube({ minMinutes })} />
+            </div>
+          </div>
+          <div className="space-y-2 text-[13px]">
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-0.5 accent-[var(--accent)]" checked={q.youtube.englishOnly} onChange={(e) => setYouTube({ englishOnly: e.target.checked })} />
+              <span>
+                English only <span className="text-fg-3">(the language a video declares, or its title&apos;s alphabet)</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-0.5 accent-[var(--accent)]" checked={q.youtube.keywordFilter} onChange={(e) => setYouTube({ keywordFilter: e.target.checked })} />
+              <span>
+                Check search results against the keyword filters <span className="text-fg-3">(title and description; drops off-topic matches)</span>
+              </span>
+            </label>
+          </div>
+          <Field label="Hidden channels" hint="Their videos are never collected or shown. Hide channels from the YouTube view, or remove them here to bring them back.">
+            <LinesEditor
+              values={q.youtube.hiddenChannels}
+              placeholder="https://www.youtube.com/channel/UC..."
+              onChange={(v) => setYouTube({ hiddenChannels: v })}
+            />
+          </Field>
+          <p className="text-[12px] text-fg-3">
+            This topic uses about {q.youtube.search.length * (q.youtube.order === "both" ? 2 : 1)} of the roughly 100 free YouTube searches a day.
+          </p>
         </div>
       </Panel>
 

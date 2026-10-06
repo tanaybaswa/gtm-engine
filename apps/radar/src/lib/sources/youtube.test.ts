@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { channelFeed, cleanDescription, durationSeconds, isShort, parseChannel, videoItem, type YouTubeVideo } from "./youtube";
+import { channelFeed, cleanDescription, durationSeconds, isShort, looksEnglish, parseChannel, videoItem, type YouTubeVideo } from "./youtube";
 
 // Shaped like the YouTube Data API's videos.list answers, from a real search for this topic.
 const podcast: YouTubeVideo = {
@@ -62,6 +62,18 @@ describe("youtube videos", () => {
     expect(videoItem({ ...podcast, snippet: { ...podcast.snippet!, liveBroadcastContent: "upcoming" } }, "q", false)).toBeNull();
     // Hidden counts stay out rather than reading as zero.
     expect(videoItem({ ...podcast, statistics: { viewCount: "12" } }, "q", false)?.engagement).toEqual({ views: 12, durationSec: 2132, refreshedAt: expect.any(Number) });
+  });
+});
+
+describe("youtube language", () => {
+  const titled = (title: string, extra: Partial<NonNullable<YouTubeVideo["snippet"]>> = {}): YouTubeVideo => ({ ...podcast, snippet: { ...podcast.snippet!, title, ...extra } });
+  it("trusts the language a video declares, and the title's alphabet otherwise", () => {
+    expect(looksEnglish(podcast)).toBe(true);
+    expect(looksEnglish(titled("AI가 $500,000를 잘못 송금했다면? AI Agent 시대, 누가 책임질까"))).toBe(false);
+    expect(looksEnglish(titled("Who pays when AI fails?", { defaultAudioLanguage: "en-GB" }))).toBe(true);
+    expect(looksEnglish(titled("Responsabilidad de la IA", { defaultAudioLanguage: "es" }))).toBe(false);
+    expect(looksEnglish(titled("AI liability explained", { defaultAudioLanguage: "zxx" }))).toBe(true);
+    expect(looksEnglish(titled("12345"))).toBe(true);
   });
 });
 

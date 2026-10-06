@@ -1,13 +1,14 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { items, type Topic } from "@/db/schema";
-import { videoItem, videoDetails, youtubeEnabled } from "@/lib/sources/youtube";
+import { channelStats, videoItem, videoDetails, youtubeEnabled } from "@/lib/sources/youtube";
 import { titleKey, truncate } from "@/lib/text";
 import type { Deadline } from "./runs";
 
 // YouTube's rules let Radar keep data about other people's videos for up to 30 days, after
 // which it has to be refreshed or deleted. Refreshing is cheap (one unit per 50 videos) and
-// keeps view counts current, so every video is refreshed after 25 days.
+// keeps view counts current, so every video is refreshed after 25 days. Videos stored before
+// Radar kept channel sizes get theirs here too.
 const REFRESH_AFTER_MS = 25 * 86_400_000;
 const MAX_PER_RUN = 500;
 
@@ -25,7 +26,10 @@ export async function refreshYouTube(topic: Topic, deadline: Deadline, log: (m: 
       and(
         eq(items.topicId, topic.id),
         eq(items.source, "youtube"),
-        sql`coalesce((${items.engagement}->>'refreshedAt')::bigint, 0) < ${before}`,
+        or(
+          sql`coalesce((${items.engagement}->>'refreshedAt')::bigint, 0) < ${before}`,
+          sql`${items.engagement}->>'subscribers' is null and ${items.engagement}->>'subscribersHidden' is null and ${items.engagement}->>'removed' is null`,
+        ),
       ),
     )
     .orderBy(asc(items.id))
@@ -36,10 +40,11 @@ export async function refreshYouTube(topic: Topic, deadline: Deadline, log: (m: 
       if (deadline.near(20_000)) break;
       const chunk = stale.slice(i, i + 50);
       const videos = new Map((await videoDetails(chunk.map((r) => r.videoId ?? "").filter(Boolean))).map((v) => [v.id, v]));
+      const stats = await channelStats([...videos.values()].map((v) => v.snippet?.channelId ?? ""));
       for (const row of chunk) {
         const video = row.videoId ? videos.get(row.videoId) : undefined;
         // Shorts and upcoming streams never get stored, so a null here means the video is gone.
-        const fresh = video ? videoItem(video, row.matchedQuery ?? "", false) : null;
+        const fresh = video ? videoItem(video, row.matchedQuery ?? "", false, Date.now(), stats.get(video.snippet?.channelId ?? "")) : null;
         if (fresh) {
           await db
             .update(items)

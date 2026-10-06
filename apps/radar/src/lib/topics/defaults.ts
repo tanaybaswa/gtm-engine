@@ -1,4 +1,4 @@
-import type { FeedConfig, TopicConfig } from "./types";
+import { YOUTUBE_DEFAULTS, type FeedConfig, type TopicConfig } from "./types";
 
 export type TopicSeed = {
   slug: string;
@@ -180,6 +180,7 @@ export const aiLiabilityInsurance: TopicSeed = {
       },
       hashtags: ["AIinsurance", "AIliability", "silentAI"],
       youtube: {
+        ...YOUTUBE_DEFAULTS,
         search: ['"AI liability" insurance', '"AI exclusions" insurance', '"silent AI" OR "affirmative AI" insurance'],
         // Insurance shows that keep coming back to AI risk. The keyword filter keeps their AI episodes.
         channels: [

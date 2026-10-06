@@ -90,7 +90,18 @@ With `YOUTUBE_API_KEY` set (a free key: in Google Cloud, enable "YouTube Data AP
 - **Searches** through the official YouTube Data API, each up to once a day. Google allows about 100 searches a day per key, shared by all topics; Radar stops at `YOUTUBE_DAILY_SEARCHES` (default 90). Quoted phrases work best, like `"AI exclusions" insurance`.
 - **Channels** you follow, read through their public feeds on every run, at no cost. Their videos go through the topic's keyword filters, since most channels cover more than one subject. Follow a channel from the YouTube view, or paste its @handle, URL or ID in Settings.
 
-Shorts and streams that haven't started are skipped. Claude scores each video from its title and description, and reads the most relevant ones from their full description: who hosts, who the guests and panelists are, and what they cover. Those speakers join People, so the LinkedIn lookups find their profiles: a list of people already speaking publicly about the market. There are no transcripts: YouTube's API only gives captions to a video's owner.
+Shorts and streams that haven't started are skipped. Settings, under YouTube, has the knobs for what gets collected:
+
+- **Search window** (default the past 3 months): niche topics find their best videos over months; two weeks left YouTube padding results with weak matches.
+- **Order**: most relevant, most viewed (brings up bigger channels), newest, or both relevant and most viewed (two searches each).
+- **Results per search** (default 50, which costs the same as 25).
+- **Keep only**: minimum views, minimum channel subscribers and minimum length. Followed channels skip the subscriber floor.
+- **English only**, going by the language a video declares or its title's alphabet, and **keyword filters on search results** (title and description). Both on by default.
+- **Hidden channels**: their videos are never collected or shown. Hide one from the YouTube view in one click.
+
+Changing the search settings runs the searches again on the next collection. Each channel's subscriber count is looked up once a week (one unit per 50 channels) and shown on its videos. In the YouTube view, filter by when a video was published, its views (100+, 1K+, 10K+), its channel's size (100+, 1K+, 10K+ subscribers; followed channels always pass) and its length, and sort by best (Claude's score, then views), newest or most viewed. The filters are remembered in your browser.
+
+Claude scores each video from its title and description, and reads the most relevant ones from their full description: who hosts, who the guests and panelists are, and what they cover. Those speakers join People, so the LinkedIn lookups find their profiles: a list of people already speaking publicly about the market. There are no transcripts: YouTube's API only gives captions to a video's owner.
 
 YouTube's rules allow keeping data about other people's videos for 30 days, so Radar refreshes every video's title, description and counts after 25 days (one API unit per 50 videos) and blanks the ones that are gone. The key goes in a request header, never a URL, so it can't leak into error messages.
 
@@ -187,6 +198,7 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 - **Speed** (Sep 29). The first version rendered every page on the server, with five to eight database round trips to a Neon database that sleeps when idle, so each tab took seconds. The console now serves one cached payload per topic and switches views in the browser: 20 to 60 ms per view and about 15 ms per topic in local tests.
 - **Serper's free plan** (Sep 29). It refuses searches that ask for 20 results ("Query pattern not allowed for free accounts"); 10 works. Refusals cost nothing, so Radar retries in simpler forms. The first real collection found 66 LinkedIn posts and articles and 20 people from three people searches.
 - **LinkedIn titles.** Google shows posts in half a dozen shapes ("Name's Post", "Title | Name", hashtags only, a byline cut short), so a name is only kept when it matches the handle in the link. Matching people by name alone once picked a namesake for the FTC chair, so a match now also needs their organization on the profile.
+- **Stale pages after edits** (Oct 6). Edits marked the cached console stale-while-revalidate, so a page loaded right after one rendered the old data on the server and the new data in the browser, and React threw a hydration error. Edits made in the console now expire the cache at once (`updateTag`); scheduled runs still serve the old payload while a new one builds.
 - **YouTube** (Oct 6). The first collection for AI liability insurance found 19 videos in about a second with three searches and three channels: an AI liability insurance webinar from the Singapore College of Insurance, Alliant on AI exclusions, a Gallagher Re deputy head of insurtech on a podcast, and several explainers of the ISO CG 40 47 exclusion. YouTube search also returns some noise (other languages, adjacent topics), which Claude's scores push down.
 - **Paywalls and roundups.** Paywalled articles (The Insurer) can't be read in full, so their people only come from the headline. Roundup articles quote big names about unrelated news, which can put them on a story.
 
