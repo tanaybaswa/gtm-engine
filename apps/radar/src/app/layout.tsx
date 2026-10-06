@@ -12,13 +12,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#06080c",
-  colorScheme: "dark light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c0e" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // The theme lives in a cookie so the first paint is already in the right colors.
-  const theme = (await cookies()).get("radar-theme")?.value === "light" ? "light" : "dark";
+  const theme = (await cookies()).get("radar-theme")?.value === "dark" ? "dark" : "light";
   return (
     <html lang="en" data-theme={theme} className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="h-full">{children}</body>

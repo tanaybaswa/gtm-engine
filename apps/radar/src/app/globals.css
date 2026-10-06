@@ -1,52 +1,79 @@
 @import "tailwindcss";
 
 /* Design tokens. Dark is the default; light is chosen from the rail and stored in a cookie. */
+/*
+ * White by default. Black carries the interface (buttons, tabs, selection) and four colors
+ * carry meaning, nothing else:
+ *   green  = signal: worth your time, or working (relevant items, origins, healthy runs)
+ *   blue   = people: who is behind it (people, quotes, LinkedIn)
+ *   yellow = new or watched: needs a look (not scored yet, starred, partial runs)
+ *   red    = problems: something failed or hit a cap
+ * Each color has a text shade (AA on panels), a fill for bars and dots, and a soft background.
+ */
 :root {
-  --bg: #06080c;
-  --bg-glow: rgba(34, 211, 238, 0.07);
-  --grid: rgba(255, 255, 255, 0.022);
-  --panel: #0b0f15;
-  --panel-2: #10151d;
-  --panel-3: #161d27;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-2: rgba(255, 255, 255, 0.13);
-  --text: #e8edf4;
-  --text-2: #a4aebc;
-  --text-3: #6c7787;
-  --accent: #22d3ee;
-  --accent-strong: #67e8f9;
-  --accent-soft: rgba(34, 211, 238, 0.12);
-  --accent-ink: #031418;
-  --good: #22c55e;
-  --warn: #fab219;
-  --bad: #f05252;
-  --shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
-  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  color-scheme: dark;
+  --bg: #fafafa;
+  --bg-glow: transparent;
+  --grid: transparent;
+  --panel: #ffffff;
+  --panel-2: #f5f6f8;
+  --panel-3: #eceef2;
+  --line: #e6e8ec;
+  --line-2: #d4d8de;
+  --text: #14161a;
+  --text-2: #4b5261;
+  --text-3: #6b7280;
+  --accent: #14161a;
+  --accent-strong: #30343b;
+  --accent-soft: #eceef2;
+  --accent-ink: #ffffff;
+  --good: #137539;
+  --good-fill: #16a34a;
+  --good-soft: #eaf6ee;
+  --people: #1d4ed8;
+  --people-fill: #2563eb;
+  --people-soft: #ebf1fe;
+  --warn: #8a6a00;
+  --warn-fill: #e0a800;
+  --warn-soft: #fcf5dc;
+  --bad: #c0262d;
+  --bad-fill: #dc2626;
+  --bad-soft: #fdecec;
+  --shadow: 0 16px 40px -16px rgba(16, 24, 40, 0.18);
+  --highlight: 0 1px 2px rgba(16, 24, 40, 0.04);
+  color-scheme: light;
 }
 
-:root[data-theme="light"] {
-  --bg: #f5f6f8;
-  --bg-glow: rgba(8, 145, 178, 0.08);
-  --grid: rgba(15, 23, 42, 0.035);
-  --panel: #ffffff;
-  --panel-2: #f4f6f9;
-  --panel-3: #e9edf3;
-  --line: rgba(15, 23, 42, 0.09);
-  --line-2: rgba(15, 23, 42, 0.16);
-  --text: #0b1220;
-  --text-2: #475467;
-  --text-3: #7c8799;
-  --accent: #0e7490;
-  --accent-strong: #0891b2;
-  --accent-soft: rgba(8, 145, 178, 0.1);
-  --accent-ink: #ffffff;
-  --good: #0ca30c;
-  --warn: #b7791f;
-  --bad: #d03b3b;
-  --shadow: 0 24px 48px -16px rgba(15, 23, 42, 0.18);
-  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  color-scheme: light;
+:root[data-theme="dark"] {
+  --bg: #0b0c0e;
+  --bg-glow: transparent;
+  --grid: rgba(255, 255, 255, 0.018);
+  --panel: #111214;
+  --panel-2: #17191c;
+  --panel-3: #1e2125;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.14);
+  --text: #eceef1;
+  --text-2: #a3a9b4;
+  --text-3: #7d8490;
+  --accent: #eceef1;
+  --accent-strong: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --accent-ink: #0b0c0e;
+  --good: #4ade80;
+  --good-fill: #22c55e;
+  --good-soft: rgba(74, 222, 128, 0.12);
+  --people: #60a5fa;
+  --people-fill: #3b82f6;
+  --people-soft: rgba(96, 165, 250, 0.13);
+  --warn: #facc15;
+  --warn-fill: #eab308;
+  --warn-soft: rgba(250, 204, 21, 0.12);
+  --bad: #f87171;
+  --bad-fill: #ef4444;
+  --bad-soft: rgba(248, 113, 113, 0.13);
+  --shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -64,8 +91,17 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
   --color-good: var(--good);
+  --color-good-fill: var(--good-fill);
+  --color-good-soft: var(--good-soft);
+  --color-people: var(--people);
+  --color-people-fill: var(--people-fill);
+  --color-people-soft: var(--people-soft);
   --color-warn: var(--warn);
+  --color-warn-fill: var(--warn-fill);
+  --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
+  --color-bad-fill: var(--bad-fill);
+  --color-bad-soft: var(--bad-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -83,7 +119,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* A faint grid and a glow from the top: the "instrument panel" backdrop. */
+/* Plain in the light theme; a faint grid in the dark one. */
 .backdrop {
   background-color: var(--bg);
   background-image:

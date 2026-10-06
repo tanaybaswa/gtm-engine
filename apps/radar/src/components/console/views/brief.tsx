@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CircleDot, FileText, Play, Sparkles } from "lucide-react";
+import { ArrowUpRight, CircleDot, FileText, Play, Sparkles, Star } from "lucide-react";
 import type { ConsoleData, ItemDTO, PersonDTO, StoryDTO } from "@/lib/console/types";
 import { itemsById, peopleByName, storiesFor, storyItems } from "../derive";
 import { formatBriefDate, formatDay, PRIMARY_KIND_LABELS } from "../format";
@@ -28,13 +28,18 @@ export function PersonChip({ name, person }: { name: string; person?: PersonDTO 
     <button
       type="button"
       onClick={() => ctl.open({ kind: "person", id: person.id })}
-      className="inline-flex h-6 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent hover:brightness-125"
-      title={[person.role, person.orgName].filter(Boolean).join(", ")}
+      className="inline-flex h-6 items-center gap-1.5 rounded-full bg-people-soft px-2.5 text-[12px] font-medium text-people hover:ring-1 hover:ring-people/30"
+      title={[person.role, person.orgName, person.watched ? "watching" : null].filter(Boolean).join(", ")}
     >
-      {person.watched ? <span className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
+      {person.watched ? <WatchedStar /> : null}
       {name}
     </button>
   );
+}
+
+/** Someone or something you starred: yellow, the "watched" color. */
+export function WatchedStar({ size = 11 }: { size?: number }) {
+  return <Star size={size} className="shrink-0 fill-warn-fill text-warn" aria-label="Watched" />;
 }
 
 export function OrgChip({ name, data }: { name: string; data: ConsoleData }) {
@@ -66,7 +71,7 @@ export function StoryBody({ story, data }: { story: StoryDTO; data: ConsoleData 
       <p className="text-[14px] leading-relaxed text-fg-2">{story.summary}</p>
       {story.whyItMatters ? (
         <p className="mt-3 text-[14px] leading-relaxed">
-          <span className="label mr-2 !text-accent">Why it matters</span>
+          <span className="label mr-2 !text-fg-2">Why it matters</span>
           {story.whyItMatters}
         </p>
       ) : null}
@@ -74,16 +79,16 @@ export function StoryBody({ story, data }: { story: StoryDTO; data: ConsoleData 
       <div className="mt-4 space-y-2.5 rounded-lg border border-line bg-panel-2/60 p-3 text-[13px]">
         {origin ? (
           <div className="flex items-start gap-2">
-            <Badge tone="accent" className="mt-px">
+            <Badge tone="good" className="mt-px">
               <CircleDot size={10} /> Origin
             </Badge>
             <div className="min-w-0 flex-1">
-              <button type="button" onClick={() => ctl.open({ kind: "item", id: origin.id })} className="text-left font-medium text-fg hover:text-accent-strong">
+              <button type="button" onClick={() => ctl.open({ kind: "item", id: origin.id })} className="text-left font-medium text-fg decoration-fg-3/40 underline-offset-[3px] hover:underline">
                 {origin.title}
               </button>
               <div className="mt-0.5 text-[12px] text-fg-3">
                 {origin.outlet ?? origin.sourceKey} · {formatDay(origin.publishedAt ?? origin.collectedAt, timeZone)} ·{" "}
-                <a href={origin.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-fg-2 hover:text-accent">
+                <a href={origin.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-fg-2 hover:text-fg">
                   open <ArrowUpRight size={11} />
                 </a>
               </div>
@@ -104,7 +109,7 @@ export function StoryBody({ story, data }: { story: StoryDTO; data: ConsoleData 
             </Badge>
             <div className="min-w-0 flex-1 break-anywhere">
               {p.url ? (
-                <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-fg hover:text-accent-strong">
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-fg decoration-fg-3/40 underline-offset-[3px] hover:underline">
                   {p.title} <ArrowUpRight size={11} className="inline text-fg-3" />
                 </a>
               ) : (
@@ -151,10 +156,10 @@ function StoryCard({ story, data }: { story: StoryDTO; data: ConsoleData }) {
   return (
     <article className="surface animate-rise rounded-xl p-4 sm:p-5">
       <div className="flex gap-3 sm:gap-4">
-        <span className="font-mono text-[20px] leading-tight text-accent tabular-nums">{String(story.rank).padStart(2, "0")}</span>
+        <span className="font-mono text-[20px] leading-tight text-fg-3 tabular-nums">{String(story.rank).padStart(2, "0")}</span>
         <div className="min-w-0 flex-1">
           <h2 className="text-[17px] leading-snug font-semibold tracking-tight sm:text-[18px]">
-            <button type="button" onClick={() => ctl.open({ kind: "story", id: story.id })} className="text-left hover:text-accent-strong">
+            <button type="button" onClick={() => ctl.open({ kind: "story", id: story.id })} className="text-left decoration-fg-3/40 underline-offset-[3px] hover:underline">
               {story.title}
             </button>
           </h2>
@@ -240,7 +245,10 @@ export function BriefView() {
               {voices.map((p) => (
                 <li key={p.id}>
                   <button type="button" onClick={() => ctl.open({ kind: "person", id: p.id })} className="group w-full text-left">
-                    <span className="text-[13px] font-medium text-fg group-hover:text-accent-strong">{p.name}</span>
+                    <span className="inline-flex items-center gap-1 text-[13px] font-medium text-people decoration-people/40 underline-offset-[3px] group-hover:underline">
+                      {p.watched ? <WatchedStar /> : null}
+                      {p.name}
+                    </span>
                     {p.role || p.orgName ? <span className="block truncate text-[12px] text-fg-3">{[p.role, p.orgName].filter(Boolean).join(", ")}</span> : null}
                   </button>
                 </li>
@@ -256,7 +264,7 @@ export function BriefView() {
             <ul className="mt-2.5 space-y-1.5 text-[13px]">
               {origins.map((o) => (
                 <li key={o.id} className="flex items-center gap-2">
-                  <CircleDot size={11} className="shrink-0 text-accent" />
+                  <CircleDot size={11} className="shrink-0 text-good" />
                   <button type="button" onClick={() => ctl.open({ kind: "item", id: o.id })} className="truncate text-fg-2 hover:text-fg">
                     {o.outlet ?? o.sourceKey}
                   </button>
@@ -275,7 +283,7 @@ export function BriefView() {
                   type="button"
                   onClick={() => store.set({ briefDate: d })}
                   className={`h-7 rounded-md px-2 font-mono text-[11.5px] ${
-                    d === date ? "bg-accent-soft text-accent" : "border border-line text-fg-2 hover:text-fg"
+                    d === date ? "bg-accent text-accent-ink" : "border border-line text-fg-2 hover:text-fg"
                   }`}
                 >
                   {formatBriefDate(d, "short")}

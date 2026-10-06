@@ -11,7 +11,7 @@ import { Palette } from "./palette";
 import { Rail } from "./rail";
 import { ConsoleProvider, createStore, useConsole, useCtl, useStore, type ConsoleContextValue } from "./store";
 import { TopBar } from "./topbar";
-import { Button, Kbd } from "./ui";
+import { Button, COLOR_KEY, Kbd } from "./ui";
 import { BriefView } from "./views/brief";
 import { HealthView } from "./views/health";
 import { LinkedInView } from "./views/linkedin";
@@ -49,7 +49,7 @@ function TopicError() {
   const error = useConsole((s) => (s.payloads[s.topicId] ? undefined : s.errors[s.topicId]));
   if (!error) return null;
   return (
-    <div className="absolute inset-x-0 top-0 z-10 m-4 flex items-center justify-between gap-3 rounded-xl border border-bad/30 bg-bad/10 px-4 py-3 text-[13px]">
+    <div className="absolute inset-x-0 top-0 z-10 m-4 flex items-center justify-between gap-3 rounded-xl border border-bad/30 bg-bad-soft px-4 py-3 text-[13px]">
       <span className="flex items-center gap-2 text-fg">
         <CircleAlert size={15} className="text-bad" /> Couldn&apos;t load this topic: {error}
       </span>
@@ -92,8 +92,8 @@ function Toasts() {
       {toasts.map((t) => {
         const Icon = t.tone === "bad" ? CircleAlert : t.tone === "good" ? CircleCheck : Info;
         return (
-          <div key={t.id} className="animate-rise pointer-events-auto flex items-start gap-2.5 rounded-xl border border-line-2 bg-panel-3 px-3.5 py-3 text-[13px] shadow-[var(--shadow)]">
-            <Icon size={15} className={`mt-px shrink-0 ${t.tone === "bad" ? "text-bad" : t.tone === "good" ? "text-good" : "text-accent"}`} />
+          <div key={t.id} className="animate-rise pointer-events-auto flex items-start gap-2.5 rounded-xl border border-line-2 bg-panel px-3.5 py-3 text-[13px] shadow-[var(--shadow)]">
+            <Icon size={15} className={`mt-px shrink-0 ${t.tone === "bad" ? "text-bad" : t.tone === "good" ? "text-good" : "text-fg-2"}`} />
             <span className="flex-1 leading-snug text-fg">{t.text}</span>
             <button
               type="button"
@@ -138,6 +138,17 @@ function Shortcuts() {
                 {keys.map((k) => (
                   <Kbd key={k}>{k}</Kbd>
                 ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <h2 className="mt-5 mb-3 text-[15px] font-semibold">Colors</h2>
+        <ul className="space-y-2">
+          {COLOR_KEY.map((k) => (
+            <li key={k.label} className="flex items-start gap-2.5 text-[13px] text-fg-2">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${k.dot}`} />
+              <span>
+                <span className={`font-medium ${k.text}`}>{k.label}</span> · {k.meaning}
               </span>
             </li>
           ))}

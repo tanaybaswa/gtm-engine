@@ -22,13 +22,10 @@ function LiveStatus() {
       <button
         type="button"
         onClick={() => ctl.setView("health")}
-        className="inline-flex h-7 min-w-0 items-center gap-2 rounded-full border border-accent/30 bg-accent-soft px-2.5 text-[12px] text-accent"
+        className="inline-flex h-7 min-w-0 items-center gap-2 rounded-full border border-line-2 bg-panel px-2.5 text-[12px] font-medium text-fg"
         title="Open run details"
       >
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping-soft absolute inline-flex h-full w-full rounded-full bg-accent" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-        </span>
+        <LoaderCircle size={12} className="shrink-0 animate-spin" />
         <span className="truncate">
           {label}
           {p?.total ? (
@@ -40,20 +37,37 @@ function LiveStatus() {
       </button>
     );
   }
+  // The dot says how the last run went: green, yellow when part of it failed, red when it failed.
   const last = data?.runs[0];
+  const health = !last || last.status === "ok" || last.status === "running" ? null : last.status === "error" ? "failed" : "had problems";
   return (
-    <span className="inline-flex h-7 min-w-0 items-center gap-2 rounded-full border border-line px-2.5 text-[12px] text-fg-3">
-      {syncing ? <LoaderCircle size={12} className="shrink-0 animate-spin" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-good" />}
+    <button
+      type="button"
+      onClick={() => ctl.setView("health")}
+      className={`inline-flex h-7 min-w-0 items-center gap-2 rounded-full border px-2.5 text-[12px] transition-colors hover:border-line-2 hover:text-fg ${
+        last?.status === "error" ? "border-bad/30 text-bad" : "border-line text-fg-3"
+      }`}
+      title={health ? `The last run ${health}. Open Health.` : "Open Health"}
+    >
+      {syncing ? (
+        <LoaderCircle size={12} className="shrink-0 animate-spin" />
+      ) : (
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+            !last || last.status === "running" ? "bg-fg-3" : last.status === "ok" ? "bg-good-fill" : last.status === "error" ? "bg-bad-fill" : "bg-warn-fill"
+          }`}
+        />
+      )}
       <span className="truncate">
         {syncing ? "Syncing" : last ? (
           <>
-            Last run <TimeAgo iso={last.finishedAt ?? last.startedAt} />
+            {health ? `Last run ${health}` : "Last run"} <TimeAgo iso={last.finishedAt ?? last.startedAt} />
           </>
         ) : (
           "No runs yet"
         )}
       </span>
-    </span>
+    </button>
   );
 }
 
@@ -159,16 +173,16 @@ export function TopBar() {
                   on ? "text-fg" : "text-fg-3 hover:text-fg"
                 }`}
               >
-                <Icon size={14} className={on ? "text-accent" : ""} />
-                {v.label}
-                {on ? <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-accent shadow-[0_0_12px_var(--accent)]" /> : null}
+                <Icon size={14} className={v.id === "linkedin" ? "text-people" : ""} />
+                <span className={on ? "font-medium" : ""}>{v.label}</span>
+                {on ? <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-accent" /> : null}
               </button>
             );
           })}
         </nav>
         {filtersApply ? (
           <div className="hidden shrink-0 items-center gap-1 py-1.5 md:flex">
-            <Toggle checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
+            <Toggle good checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
             <Segmented<Range>
               label="Time range"
               value={range}
@@ -180,7 +194,7 @@ export function TopBar() {
       </div>
       {filtersApply ? (
         <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-1.5 md:hidden">
-          <Toggle checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
+          <Toggle good checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
           <Segmented<Range>
             label="Time range"
             value={range}

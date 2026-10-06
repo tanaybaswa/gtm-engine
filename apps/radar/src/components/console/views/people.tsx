@@ -14,7 +14,7 @@ export function Relations({ relations }: { relations: Record<string, number> }) 
       {Object.entries(relations)
         .sort(([a], [b]) => RELATION_ORDER.indexOf(a) - RELATION_ORDER.indexOf(b))
         .map(([relation, n]) => (
-          <Badge key={relation} tone={relation === "mentioned" || relation === "author" || relation === "publisher" ? "neutral" : "accent"}>
+          <Badge key={relation} tone={relation === "mentioned" || relation === "author" || relation === "publisher" ? "neutral" : "people"}>
             {RELATION_LABELS[relation] ?? relation}
             {n > 1 ? <span className="font-mono opacity-70">{n}</span> : null}
           </Badge>
@@ -36,10 +36,10 @@ export function WatchButton({ kind, id, watched }: { kind: "person" | "org"; id:
       aria-label={watched ? "Stop watching" : "Watch"}
       title={watched ? "Watching: Claude always extracts them. Click to stop." : "Watch: Claude always extracts them"}
       className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
-        watched ? "text-accent" : "text-fg-3 hover:bg-panel-3 hover:text-fg"
+        watched ? "text-warn" : "text-fg-3 hover:bg-panel-3 hover:text-fg"
       }`}
     >
-      <Star size={14} fill={watched ? "currentColor" : "none"} />
+      <Star size={14} className={watched ? "fill-warn-fill" : ""} />
     </button>
   );
 }

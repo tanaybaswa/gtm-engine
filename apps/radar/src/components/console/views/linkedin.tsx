@@ -98,10 +98,10 @@ function PostRow({ post, name, threshold, onAccount }: { post: ItemDTO; name?: s
             <button
               type="button"
               onClick={() => account && onAccount(account)}
-              className="inline-flex items-center gap-1.5 font-medium text-fg hover:text-accent"
+              className="inline-flex items-center gap-1.5 font-medium text-people decoration-people/40 underline-offset-[3px] hover:underline"
               title={account ? "Show only this account's posts" : undefined}
             >
-              <LinkedInIcon size={13} className="text-fg-3" /> {who ?? (article ? "LinkedIn article" : "LinkedIn post")}
+              <LinkedInIcon size={13} className="opacity-80" /> {who ?? (article ? "LinkedIn article" : "LinkedIn post")}
             </button>
             <span className="text-fg-3">·</span>
             {post.publishedAt ? (
@@ -115,7 +115,7 @@ function PostRow({ post, name, threshold, onAccount }: { post: ItemDTO; name?: s
             <RelevanceMeter value={post.relevance} threshold={threshold} />
           </div>
           <button type="button" onClick={() => ctl.open({ kind: "item", id: post.id })} className="mt-1 block text-left">
-            <span className="block text-[14px] leading-snug font-medium text-fg group-hover:text-accent-strong">{post.title}</span>
+            <span className="block text-[14px] leading-snug font-medium text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{post.title}</span>
             {post.snippet && post.snippet !== post.title ? (
               <span className="mt-1 line-clamp-3 block text-[13px] leading-relaxed text-fg-2">{post.snippet}</span>
             ) : null}
@@ -150,13 +150,13 @@ function PersonRow({ person, active, onAccount }: { person: LinkedInPerson; acti
     else if (person.profileId) ctl.open({ kind: "profile", id: person.profileId });
   };
   return (
-    <li className={`row-cv border-b border-line last:border-0 ${active ? "bg-accent-soft/60" : ""}`}>
+    <li className={`row-cv border-b border-line last:border-0 ${active ? "bg-people-soft" : ""}`}>
       <div className="flex items-start gap-2 px-4 py-2.5 hover:bg-panel-2">
         <button type="button" onClick={open} className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[13.5px] font-medium text-fg">{person.name}</span>
           {person.headline ? <span className="block truncate text-[12px] text-fg-2">{person.headline}</span> : null}
           <span className="mt-1 flex flex-wrap gap-1">
-            {person.posts ? <Badge tone="accent">Posted {person.posts > 1 ? `${person.posts} times` : "once"}</Badge> : null}
+            {person.posts ? <Badge tone="people">Posted {person.posts > 1 ? `${person.posts} times` : "once"}</Badge> : null}
             {person.inNews ? <Badge>In the news</Badge> : null}
             {person.matchedQuery ? (
               <Badge tone="outline" title="Their public profile matched this people search">
@@ -264,7 +264,7 @@ export function LinkedInView() {
     <div className="mx-auto max-w-[1440px] p-3 sm:p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2.5">
-          <LinkedInIcon size={18} className="mt-0.5 shrink-0 text-accent" />
+          <LinkedInIcon size={18} className="mt-0.5 shrink-0 text-people" />
           <div>
             <h2 className="text-[15px] font-semibold">LinkedIn</h2>
             <p className="text-[12px] text-fg-3">Public posts and profiles that Google has found. Searched up to once a day; Radar never logs in to LinkedIn.</p>
@@ -311,7 +311,7 @@ export function LinkedInView() {
                 <button
                   type="button"
                   onClick={() => setAccount(null)}
-                  className="ml-1 inline-flex h-6 min-w-0 items-center gap-1 rounded-full bg-accent-soft px-2 text-[12px] text-accent"
+                  className="ml-1 inline-flex h-6 min-w-0 items-center gap-1 rounded-full bg-people-soft px-2 text-[12px] font-medium text-people"
                   title="Show everyone's posts again"
                 >
                   <span className="truncate">All posts by {accountName}</span> <X size={12} className="shrink-0" />

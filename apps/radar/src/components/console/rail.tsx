@@ -6,7 +6,7 @@ import { logout } from "@/app/actions";
 import type { TopicSummary } from "@/lib/console/types";
 import { RadarMark } from "./icons";
 import { useConsole, useCtl, useStore } from "./store";
-import { Kbd } from "./ui";
+import { ColorKey, Kbd } from "./ui";
 
 function MiniSpark({ values }: { values: number[] }) {
   const width = 52;
@@ -18,7 +18,7 @@ function MiniSpark({ values }: { values: number[] }) {
   return (
     <svg width={width} height={height} className="shrink-0 overflow-visible" aria-hidden>
       <path d={points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ")} fill="none" stroke="var(--text-3)" strokeWidth={1.5} strokeLinejoin="round" />
-      {last ? <circle cx={last[0]} cy={last[1]} r={2.5} fill="var(--accent)" /> : null}
+      {last ? <circle cx={last[0]} cy={last[1]} r={2.5} fill="var(--text-2)" /> : null}
     </svg>
   );
 }
@@ -40,14 +40,16 @@ function TopicRow({ topic, active, running }: { topic: TopicSummary; active: boo
           <span className={`truncate text-[13px] font-medium ${active ? "text-fg" : "text-fg-2 group-hover:text-fg"}`}>{topic.name}</span>
           {running ? (
             <span className="relative flex h-2 w-2 shrink-0" title="Running">
-              <span className="animate-ping-soft absolute inline-flex h-full w-full rounded-full bg-accent" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+              <span className="animate-ping-soft absolute inline-flex h-full w-full rounded-full bg-fg-2" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-fg-2" />
             </span>
           ) : null}
         </span>
         <span className="flex items-center justify-between gap-2">
           <span className="truncate font-mono text-[10.5px] text-fg-3">
-            {topic.new24h} new · {topic.relevant24h} signal
+            {topic.new24h} new ·{" "}
+            <span className={topic.relevant24h ? "font-medium text-good" : ""}>{topic.relevant24h} signal</span>
+            {topic.lastRun?.status === "error" ? <span className="text-bad"> · failed</span> : null}
           </span>
           <MiniSpark values={topic.spark} />
         </span>
@@ -135,6 +137,7 @@ function RailBody() {
       </div>
 
       <div className="space-y-1 border-t border-line p-2">
+        <ColorKey className="px-3 pt-1 pb-1.5" />
         <button
           type="button"
           onClick={() => store.set({ palette: true, railOpen: false })}

@@ -8,7 +8,7 @@ import { formatBriefDate, formatDay, usd } from "../format";
 import { STREAM_ICONS } from "../icons";
 import { ItemCompact } from "../items";
 import { useConsole, useCtl, useStore, useTopicData } from "../store";
-import { Button, Empty, Skeleton, StatTile } from "../ui";
+import { Button, capFill, Empty, Skeleton, StatTile } from "../ui";
 
 function Telemetry({ data }: { data: ConsoleData }) {
   const days = data.daily;
@@ -29,12 +29,13 @@ function Telemetry({ data }: { data: ConsoleData }) {
       />
       <StatTile
         label="Signal today"
+        tone={today?.relevant ? "good" : undefined}
         value={today?.relevant ?? 0}
         foot={`${yesterday?.relevant ?? 0} yesterday · scored ${data.topic.config.relevanceThreshold}+`}
         spark={{ values: days.map((d) => d.relevant), labels }}
       />
-      <StatTile label="Origins found" value={data.totals.origins} foot={`of ${data.totals.relevant} relevant items`} />
-      <StatTile label="Voices" value={voices.length} foot={`${watched} watched · ${data.people.length} people named`} />
+      <StatTile label="Origins found" tone={data.totals.origins ? "good" : undefined} value={data.totals.origins} foot={`of ${data.totals.relevant} relevant items`} />
+      <StatTile label="Voices" tone={voices.length ? "people" : undefined} value={voices.length} foot={`${watched} watched · ${data.people.length} people named`} />
       <StatTile label="Sources" value={data.sources.length} foot={`${followed} followed directly`} />
       <StatTile
         label="Claude this month"
@@ -42,7 +43,7 @@ function Telemetry({ data }: { data: ConsoleData }) {
         foot={data.spend.ai.enabled ? `of ${usd(data.spend.ai.capUsd)} cap` : "Add ANTHROPIC_API_KEY"}
       >
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-line">
-          <div className={`h-full rounded-full ${spendPct >= 90 ? "bg-bad" : "bg-accent"}`} style={{ width: `${spendPct}%` }} />
+          <div className={`h-full rounded-full ${capFill(spendPct)}`} style={{ width: `${spendPct}%` }} />
         </div>
       </StatTile>
     </div>
@@ -57,7 +58,7 @@ function BriefStrip({ data }: { data: ConsoleData }) {
     return (
       <div className="surface flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
         <div className="flex items-center gap-2.5 text-[13px] text-fg-2">
-          <Sparkles size={15} className="text-accent" />
+          <Sparkles size={15} className="text-fg-3" />
           {data.spend.ai.enabled ? "No brief yet. It is written each morning, or on demand." : "The brief needs Claude. Add ANTHROPIC_API_KEY to turn it on."}
         </div>
         {data.spend.ai.enabled ? (
@@ -75,7 +76,7 @@ function BriefStrip({ data }: { data: ConsoleData }) {
           <h2 className="label !text-fg-2">Brief</h2>
           <span className="text-[12px] text-fg-3">{formatBriefDate(date)}</span>
         </div>
-        <button type="button" onClick={() => ctl.setView("brief")} className="inline-flex items-center gap-1 text-[12px] text-fg-2 hover:text-accent">
+        <button type="button" onClick={() => ctl.setView("brief")} className="inline-flex items-center gap-1 text-[12px] font-medium text-fg-2 hover:text-fg">
           Read the brief <ArrowRight size={13} />
         </button>
       </div>
@@ -91,13 +92,13 @@ function BriefStrip({ data }: { data: ConsoleData }) {
                 className="surface group flex h-full w-full flex-col rounded-xl p-3.5 text-left transition-colors hover:border-line-2"
               >
                 <div className="flex items-start gap-2.5">
-                  <span className="font-mono text-[12px] text-accent tabular-nums">{String(story.rank).padStart(2, "0")}</span>
-                  <span className="line-clamp-2 text-[13.5px] leading-snug font-semibold text-fg group-hover:text-accent-strong">{story.title}</span>
+                  <span className="font-mono text-[12px] text-fg-3 tabular-nums">{String(story.rank).padStart(2, "0")}</span>
+                  <span className="line-clamp-2 text-[13.5px] leading-snug font-semibold text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{story.title}</span>
                 </div>
                 <div className="mt-auto flex items-center gap-3 pt-2.5 pl-6 text-[11.5px] text-fg-3">
                   {origin ? (
                     <span className="inline-flex min-w-0 items-center gap-1 truncate" title="Where the story started">
-                      <CircleDot size={11} className="shrink-0 text-accent" />
+                      <CircleDot size={11} className="shrink-0 text-good" />
                       <span className="truncate">{origin.outlet ?? origin.sourceKey}</span>
                     </span>
                   ) : (
@@ -105,7 +106,7 @@ function BriefStrip({ data }: { data: ConsoleData }) {
                   )}
                   <span className="shrink-0">{items.length} sources</span>
                   {story.peopleNames.length ? (
-                    <span className="inline-flex shrink-0 items-center gap-1">
+                    <span className="inline-flex shrink-0 items-center gap-1 text-people" title={story.peopleNames.join(", ")}>
                       <Users size={11} /> {story.peopleNames.length}
                     </span>
                   ) : null}
@@ -136,12 +137,12 @@ function StreamColumn({ stream, items, total, data }: { stream: (typeof STREAMS)
     <section className="surface flex min-h-0 w-full shrink-0 flex-col rounded-xl lg:min-w-[272px] lg:flex-1 lg:snap-start">
       <header className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2" title={stream.hint}>
-          <Icon size={14} className="shrink-0 text-fg-2" />
+          <Icon size={14} className={`shrink-0 ${stream.id === "linkedin" ? "text-people" : "text-fg-2"}`} />
           <h3 className="truncate text-[13px] font-semibold">{stream.label}</h3>
           <span className="font-mono text-[11px] text-fg-3 tabular-nums">{items.length}</span>
         </div>
         <div className="flex items-center gap-2">
-          {signal ? <span className="font-mono text-[10.5px] whitespace-nowrap text-accent tabular-nums" title="Relevant items">{signal} signal</span> : null}
+          {signal ? <span className="font-mono text-[10.5px] font-medium whitespace-nowrap text-good tabular-nums" title="Relevant items">{signal} signal</span> : null}
           <button
             type="button"
             onClick={openStream}
@@ -161,7 +162,7 @@ function StreamColumn({ stream, items, total, data }: { stream: (typeof STREAMS)
             ))}
           </ul>
           {items.length > 5 ? (
-            <button type="button" onClick={openStream} className="border-t border-line px-3.5 py-2 text-left text-[12px] text-fg-2 hover:text-accent lg:hidden">
+            <button type="button" onClick={openStream} className="border-t border-line px-3.5 py-2 text-left text-[12px] text-fg-2 hover:text-fg lg:hidden">
               See all {items.length}
             </button>
           ) : null}
