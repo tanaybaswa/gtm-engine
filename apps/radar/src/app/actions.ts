@@ -85,7 +85,7 @@ export async function setWatched(kind: "person" | "org", id: number, watched: bo
   const db = await getDb();
   if (kind === "person") await db.update(people).set({ watched }).where(eq(people.id, id));
   else await db.update(orgs).set({ watched }).where(eq(orgs.id, id));
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   return { ok: true };
 }
 
@@ -146,7 +146,7 @@ export async function setFollowed(
 
   const [updated] = await db.update(topics).set({ config: next, updatedAt: new Date() }).where(eq(topics.id, topicId)).returning();
   if (feedUrl !== source.feedUrl) await db.update(sources).set({ feedUrl }).where(eq(sources.id, sourceId));
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   const parsed = { ...updated, config: topicConfigSchema.parse(updated.config) };
   const state = followState({ key: source.key, followed: follow, feedUrl }, parsed.config);
   return { ok: true, followed: state.followed, feedUrl: state.feedUrl, topic: toTopicDTO(parsed) };
@@ -172,7 +172,7 @@ export async function saveTopicSettings(
     .where(eq(topics.id, topicId))
     .returning();
   if (!updated) return { ok: false, error: "That topic no longer exists." };
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   return { ok: true, topic: toTopicDTO({ ...updated, config: parsed.data }) };
 }
 
@@ -188,7 +188,7 @@ export async function resetTopicSettings(topicId: number): Promise<Result<{ topi
     .set({ name: seed.name, description: seed.description, config: configValue, updatedAt: new Date() })
     .where(eq(topics.id, topicId))
     .returning();
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   return { ok: true, topic: toTopicDTO({ ...updated, config: configValue }) };
 }
 
@@ -197,7 +197,7 @@ export async function setTopicActive(topicId: number, active: boolean): Promise<
   if (!(await signedIn())) return SIGNED_OUT;
   const db = await getDb();
   await db.update(topics).set({ active, updatedAt: new Date() }).where(eq(topics.id, topicId));
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   return { ok: true };
 }
 
@@ -241,7 +241,7 @@ export async function createTopic(input: { name: string; brief: string }): Promi
     .insert(topics)
     .values({ slug, name: compiled.name, description: compiled.description, config: compiled.config })
     .returning();
-  await markChanged();
+  await markChanged({ readYourWrites: true });
   // Claude's design used part of this request's time; the first run gets the rest.
   startInBackground({ ...created, config: compiled.config }, "full", startedAt);
   return { ok: true, id: created.id, notes: compiled.notes };

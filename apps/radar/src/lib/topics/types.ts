@@ -58,6 +58,23 @@ function fillLinkedInDefaults(input: unknown): unknown {
   };
 }
 
+export const YOUTUBE_ORDERS = ["relevance", "viewCount", "date", "both"] as const;
+export type YouTubeOrder = (typeof YOUTUBE_ORDERS)[number];
+
+export const YOUTUBE_DEFAULTS = {
+  search: [] as string[],
+  channels: [] as string[],
+  hiddenChannels: [] as string[],
+  windowDays: 90,
+  order: "relevance" as YouTubeOrder,
+  maxResults: 50,
+  minViews: 0,
+  minSubscribers: 0,
+  minMinutes: 0,
+  englishOnly: true,
+  keywordFilter: true,
+};
+
 const configShape = z.object({
   // Every group needs at least one match; terms ending in * match as prefixes.
   keywords: z.object({
@@ -97,8 +114,24 @@ const configShape = z.object({
         search: z.array(z.string()).default([]),
         // Channels to follow, by @handle, URL or ID, read through their free public feeds.
         channels: z.array(z.string()).default([]),
+        // Channels whose videos are never kept.
+        hiddenChannels: z.array(z.string()).default([]),
+        // How far back searches look, in days; 0 for any time. Niche topics need months to
+        // find their best videos: two weeks leaves YouTube padding results with weak matches.
+        windowDays: z.number().int().min(0).max(3650).default(90),
+        // "both" runs each search twice, by relevance and by views.
+        order: z.enum(YOUTUBE_ORDERS).default("relevance"),
+        maxResults: z.number().int().min(5).max(50).default(50),
+        // Videos below these aren't kept. Followed channels skip the subscriber floor.
+        minViews: z.number().int().min(0).default(0),
+        minSubscribers: z.number().int().min(0).default(0),
+        minMinutes: z.number().min(0).max(600).default(0),
+        // Going by the language a video declares, or its title's alphabet when it declares none.
+        englishOnly: z.boolean().default(true),
+        // Search results go through the topic's keyword filters too, on title and description.
+        keywordFilter: z.boolean().default(true),
       })
-      .default({ search: [], channels: [] }),
+      .default(YOUTUBE_DEFAULTS),
   }),
   feeds: z.array(feedSchema).default([]),
   watch: z

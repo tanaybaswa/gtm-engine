@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowUpRight, Check, Eye, Play, Plus, Search, Users, X } from "lucide-react";
-import { useDeferredValue, useMemo, useState } from "react";
+import { ArrowUpRight, Check, Eye, EyeOff, Play, Plus, Search, Users, X } from "lucide-react";
+import { useDeferredValue, useMemo, useState, useSyncExternalStore } from "react";
 import type { ConsoleData, ItemDTO, PersonDTO } from "@/lib/console/types";
-import { byNewest, useFilteredItems } from "../derive";
+import { byNewest, passesSignal } from "../derive";
 import { matches } from "../format";
 import { LinkedInIcon, YouTubeIcon } from "../icons";
 import { useConsole, useCtl, useTopicData } from "../store";
@@ -26,6 +26,82 @@ export function formatViews(views: number | undefined): string | null {
   if (views === undefined) return null;
   const short = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(views);
   return `${short} ${views === 1 ? "view" : "views"}`;
+}
+
+const compact = (n: number) => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+
+/** A channel's size as YouTube reports it, or that it hides it. */
+export function formatSubscribers(e: Record<string, number> | null | undefined): string | null {
+  if (e?.subscribersHidden) return "subscribers hidden";
+  if (e?.subscribers === undefined) return null;
+  return `${compact(e.subscribers)} ${e.subscribers === 1 ? "subscriber" : "subscribers"}`;
+}
+
+/** "https://www.youtube.com/channel/UC..." or "UC..." -> "UC...". */
+const channelIdIn = (input: string) => input.match(/UC[\w-]{22}/)?.[0] ?? null;
+
+// The YouTube tab's filters, remembered in this browser.
+type Filters = { published: number; views: number; subscribers: number; minutes: number; sort: "best" | "new" | "views" };
+const NO_FILTERS: Filters = { published: 0, views: 0, subscribers: 0, minutes: 0, sort: "best" };
+const FILTERS_KEY = "radar-youtube-filters";
+const filterListeners = new Set<() => void>();
+let filtersInMemory = "";
+
+function readFilters(): string {
+  try {
+    return localStorage.getItem(FILTERS_KEY) ?? filtersInMemory;
+  } catch {
+    return filtersInMemory;
+  }
+}
+
+function writeFilters(next: Filters) {
+  filtersInMemory = JSON.stringify(next);
+  try {
+    localStorage.setItem(FILTERS_KEY, filtersInMemory);
+  } catch {
+    // Private windows and blocked storage keep the filters for this visit only.
+  }
+  filterListeners.forEach((listener) => listener());
+}
+
+function useFilters(): [Filters, (next: Filters) => void] {
+  const raw = useSyncExternalStore(
+    (listener) => {
+      filterListeners.add(listener);
+      return () => filterListeners.delete(listener);
+    },
+    readFilters,
+    () => "",
+  );
+  const filters = useMemo(() => {
+    try {
+      return raw ? { ...NO_FILTERS, ...(JSON.parse(raw) as Partial<Filters>) } : NO_FILTERS;
+    } catch {
+      return NO_FILTERS;
+    }
+  }, [raw]);
+  return [filters, writeFilters];
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: number; options: [number, string][]; onChange: (v: number) => void }) {
+  const on = value !== options[0][0];
+  return (
+    <label className="inline-flex items-center gap-1.5 text-[12px] text-fg-3">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`h-7 rounded-md border bg-panel px-1.5 text-[12px] text-fg focus:outline-none ${on ? "border-fg font-medium" : "border-line"}`}
+      >
+        {options.map(([v, text]) => (
+          <option key={v} value={v}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 /** The YouTube player, as YouTube serves it: no-cookie embed, unmodified. */
@@ -56,7 +132,16 @@ export function VideoStats({ item, className = "" }: { item: ItemDTO; className?
 }
 
 type Speaker = { person: PersonDTO; videos: number; itemIds: Set<number> };
-type Channel = { key: string; name: string; videos: number; views: number; sourceId: number | null; followed: boolean };
+type Channel = {
+  key: string;
+  name: string;
+  videos: number;
+  views: number;
+  sourceId: number | null;
+  followed: boolean;
+  /** The latest size YouTube reported, from the channel's newest video. */
+  engagement: Record<string, number> | null;
+};
 
 /** Everyone named in a video as speaker, guest, author or poster, with how many videos. */
 function speakersOf(data: ConsoleData, videos: ItemDTO[]): Speaker[] {
@@ -90,9 +175,11 @@ function channelsOf(data: ConsoleData, videos: ItemDTO[]): Channel[] {
       views: 0,
       sourceId: source?.id ?? null,
       followed: source?.followed ?? false,
+      engagement: null,
     };
     entry.videos += 1;
     entry.views += video.engagement?.views ?? 0;
+    if (!entry.engagement && (video.engagement?.subscribers !== undefined || video.engagement?.subscribersHidden)) entry.engagement = video.engagement;
     out.set(video.sourceKey, entry);
   }
   return [...out.values()].sort((a, b) => Number(b.followed) - Number(a.followed) || b.videos - a.videos || b.views - a.views);
@@ -135,6 +222,7 @@ function VideoRow({ video, threshold, onChannel }: { video: ItemDTO; threshold: 
             <button type="button" onClick={() => onChannel(video.sourceKey)} className="font-medium text-fg-2 hover:text-fg" title="Show only this channel">
               {video.outlet ?? "YouTube"}
             </button>
+            {formatSubscribers(video.engagement) ? <span className="text-fg-3">{formatSubscribers(video.engagement)}</span> : null}
             <span className="text-fg-3">·</span>
             <TimeAgo iso={video.publishedAt ?? video.collectedAt} className="text-fg-3" />
             {video.engagement?.views !== undefined ? (
@@ -208,8 +296,7 @@ function ChannelRow({ channel, active, onPick }: { channel: Channel; active: boo
         <button type="button" onClick={onPick} className="min-w-0 flex-1 text-left" title="Show only this channel">
           <span className="block truncate text-[13.5px] font-medium text-fg">{channel.name}</span>
           <span className="block font-mono text-[11px] text-fg-3">
-            {channel.videos} {channel.videos === 1 ? "video" : "videos"}
-            {channel.views ? ` · ${formatViews(channel.views)}` : ""}
+            {[formatSubscribers(channel.engagement), `${channel.videos} ${channel.videos === 1 ? "video" : "videos"} here`].filter(Boolean).join(" · ")}
           </span>
         </button>
         {channel.sourceId !== null ? (
@@ -230,40 +317,106 @@ function ChannelRow({ channel, active, onPick }: { channel: Channel; active: boo
             {busy ? "..." : channel.followed ? "Following" : "Follow"}
           </button>
         ) : null}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await ctl.hideChannel(channel.key, channel.name);
+            setBusy(false);
+          }}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-3 hover:bg-panel-3 hover:text-fg disabled:opacity-60"
+          aria-label={`Hide ${channel.name}`}
+          title="Hide this channel: its videos stop being collected and shown"
+        >
+          <EyeOff size={14} />
+        </button>
       </div>
     </li>
   );
 }
 
-type Sort = "new" | "views";
+const PUBLISHED: [number, string][] = [
+  [0, "Any time"],
+  [7, "Past week"],
+  [30, "Past month"],
+  [90, "Past 3 months"],
+  [365, "Past year"],
+];
+const VIEWS: [number, string][] = [
+  [0, "Any"],
+  [100, "100+"],
+  [1000, "1K+"],
+  [10000, "10K+"],
+];
+const SUBSCRIBERS: [number, string][] = [
+  [0, "Any size"],
+  [100, "100+ subscribers"],
+  [1000, "1K+ subscribers"],
+  [10000, "10K+ subscribers"],
+];
+const LENGTH: [number, string][] = [
+  [0, "Any"],
+  [5, "5+ min"],
+  [20, "20+ min"],
+];
+
+/** Claude's score first, then views, then the newest. Unscored videos sort after scored ones. */
+const byBest = (a: ItemDTO, b: ItemDTO) =>
+  (b.relevance ?? -1) - (a.relevance ?? -1) || (b.engagement?.views ?? 0) - (a.engagement?.views ?? 0) || byNewest(a, b);
+const byViews = (a: ItemDTO, b: ItemDTO) => (b.engagement?.views ?? 0) - (a.engagement?.views ?? 0) || byNewest(a, b);
 
 export function YouTubeView() {
   const data = useTopicData();
   const ctl = useCtl();
   const query = useDeferredValue(useConsole((s) => s.query).trim());
   const signalOnly = useConsole((s) => s.signalOnly && Boolean(s.payloads[s.topicId]?.totals.scored));
-  const filtered = useFilteredItems(data);
-  const [sort, setSort] = useState<Sort>("new");
+  // The time window moves once a minute, not on every clock tick.
+  const minute = useConsole((s) => Math.floor(s.now / 60_000));
+  const [filters, setFilters] = useFilters();
   const [channel, setChannel] = useState<string | null>(null);
   const [speaker, setSpeaker] = useState<number | null>(null);
   const [side, setSide] = useState<"speakers" | "channels">("speakers");
   const [pane, setPane] = useState<"videos" | "side">("videos");
 
-  const allVideos = useMemo(() => (data ? data.items.filter((i) => i.source === "youtube").sort(byNewest) : []), [data]);
-  const inRange = useMemo(() => filtered.filter((i) => i.source === "youtube"), [filtered]);
+  // Hidden channels drop out everywhere in this view.
+  const hidden = useMemo(
+    () => new Set((data?.topic.config.queries.youtube.hiddenChannels ?? []).map(channelIdIn).filter(Boolean).map((id) => `youtube:${id}`)),
+    [data],
+  );
+  const allVideos = useMemo(
+    () => (data ? data.items.filter((i) => i.source === "youtube" && !hidden.has(i.sourceKey)).sort(byNewest) : []),
+    [data, hidden],
+  );
+  const followed = useMemo(() => new Set((data?.sources ?? []).filter((s) => s.followed && s.key.startsWith("youtube:")).map((s) => s.key)), [data]);
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const now = minute * 60_000;
+    return allVideos.filter((v) => {
+      const e = v.engagement ?? {};
+      if (filters.published && now - Date.parse(v.publishedAt ?? v.collectedAt) > filters.published * 86_400_000) return false;
+      if (filters.views && (e.views ?? 0) < filters.views) return false;
+      // Followed channels count as trusted, whatever their size.
+      if (filters.subscribers && !followed.has(v.sourceKey) && (e.subscribers ?? -1) < filters.subscribers) return false;
+      if (filters.minutes && (e.durationSec ?? 0) < filters.minutes * 60) return false;
+      if (signalOnly && !passesSignal(v, data)) return false;
+      return matches(query, v.title, v.outlet, v.gist, v.snippet, ...v.people.map((p) => p.name));
+    });
+  }, [data, allVideos, followed, filters, signalOnly, query, minute]);
   const speakers = useMemo(() => (data ? speakersOf(data, allVideos) : []), [data, allVideos]);
   const channels = useMemo(() => (data ? channelsOf(data, allVideos) : []), [data, allVideos]);
   const picked = speaker !== null ? speakers.find((s) => s.person.id === speaker) : undefined;
-  // Picking a channel or a speaker shows all of their videos, whatever the time range and Signal filter.
+  // Picking a channel or a speaker shows all of their videos, whatever the filters.
   const videos = useMemo(() => {
-    const base = channel ? allVideos.filter((v) => v.sourceKey === channel) : picked ? allVideos.filter((v) => picked.itemIds.has(v.id)) : inRange;
-    return sort === "views" ? [...base].sort((a, b) => (b.engagement?.views ?? 0) - (a.engagement?.views ?? 0)) : base;
-  }, [allVideos, inRange, channel, picked, sort]);
+    const base = channel ? allVideos.filter((v) => v.sourceKey === channel) : picked ? allVideos.filter((v) => picked.itemIds.has(v.id)) : filtered;
+    return [...base].sort(filters.sort === "views" ? byViews : filters.sort === "new" ? byNewest : byBest);
+  }, [allVideos, filtered, channel, picked, filters.sort]);
   const shownSpeakers = useMemo(
     () => speakers.filter((s) => matches(query, s.person.name, s.person.role, s.person.orgName)),
     [speakers, query],
   );
   const shownChannels = useMemo(() => channels.filter((c) => matches(query, c.name)), [channels, query]);
+  const filtering = filters.published || filters.views || filters.subscribers || filters.minutes;
 
   if (!data) {
     return (
@@ -306,7 +459,8 @@ export function YouTubeView() {
           <div>
             <h2 className="text-[15px] font-semibold">YouTube</h2>
             <p className="text-[12px] text-fg-3">
-              Webinars, talks, podcasts and demos from YouTube searches and the channels you follow. Searched up to once a day; Shorts are skipped.
+              Webinars, talks, podcasts and demos from YouTube searches and the channels you follow. Filter them below; choose what gets collected in
+              Settings, under YouTube.
             </p>
             {capReached ? (
               <p className="mt-1 text-[12px] text-warn">
@@ -346,7 +500,10 @@ export function YouTubeView() {
             <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-2">
                 <h3 className="text-[13px] font-semibold">Videos</h3>
-                <span className="font-mono text-[11px] text-fg-3">{videos.length}</span>
+                <span className="font-mono text-[11px] text-fg-3">
+                  {videos.length}
+                  {!channelName && !picked && videos.length < allVideos.length ? ` of ${allVideos.length}` : ""}
+                </span>
                 {channelName || picked ? (
                   <button
                     type="button"
@@ -366,14 +523,26 @@ export function YouTubeView() {
               </div>
               <Segmented
                 label="Sort videos"
-                value={sort}
-                onChange={setSort}
+                value={filters.sort}
+                onChange={(sort) => setFilters({ ...filters, sort })}
                 options={[
+                  { value: "best", label: "Best" },
                   { value: "new", label: "Newest" },
                   { value: "views", label: "Most viewed" },
                 ]}
               />
             </header>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-2">
+              <FilterSelect label="Published" value={filters.published} options={PUBLISHED} onChange={(published) => setFilters({ ...filters, published })} />
+              <FilterSelect label="Views" value={filters.views} options={VIEWS} onChange={(views) => setFilters({ ...filters, views })} />
+              <FilterSelect label="Channel" value={filters.subscribers} options={SUBSCRIBERS} onChange={(subscribers) => setFilters({ ...filters, subscribers })} />
+              <FilterSelect label="Length" value={filters.minutes} options={LENGTH} onChange={(minutes) => setFilters({ ...filters, minutes })} />
+              {filtering ? (
+                <button type="button" onClick={() => setFilters({ ...NO_FILTERS, sort: filters.sort })} className="text-[12px] font-medium text-fg-2 hover:text-fg">
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
             {videos.length ? (
               <ul>
                 {videos.map((video) => (
@@ -382,9 +551,11 @@ export function YouTubeView() {
               </ul>
             ) : (
               <p className="px-4 py-8 text-center text-[13px] text-fg-3">
-                {signalOnly
-                  ? "No videos in this time range. Widen it, or turn off Signal to see the ones Claude scored as off topic."
-                  : "No videos in this time range. Widen it to see older ones."}
+                {filtering
+                  ? "No videos clear these filters. Loosen them, or clear them."
+                  : signalOnly
+                    ? "No videos to show. Turn off Signal to see the ones Claude scored as off topic."
+                    : "No videos match the search."}
               </p>
             )}
           </section>

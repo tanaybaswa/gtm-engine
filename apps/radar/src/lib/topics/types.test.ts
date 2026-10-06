@@ -22,7 +22,7 @@ describe("topic config", () => {
     });
     expect(config.queries.serper.profiles).toEqual(['"parametric insurance"', '"cat bond"']);
     expect(config.queries.hashtags).toEqual(["ParametricInsurance", "CatBond"]);
-    expect(config.queries.youtube).toEqual({ search: ['"parametric insurance"', '"cat bond"'], channels: [] });
+    expect(config.queries.youtube).toMatchObject({ search: ['"parametric insurance"', '"cat bond"'], channels: [] });
   });
 
   it("leaves saved people searches and hashtags alone, even when empty", () => {
@@ -38,6 +38,19 @@ describe("topic config", () => {
     const config = topicConfigSchema.parse({ ...base, queries: {} });
     expect(config.queries.serper).toEqual({ news: [], linkedin: [], profiles: [] });
     expect(config.queries.hashtags).toEqual([]);
-    expect(config.queries.youtube).toEqual({ search: [], channels: [] });
+    // YouTube looks back three months for the 50 best matches, in English, through the keyword filters.
+    expect(config.queries.youtube).toEqual({
+      search: [],
+      channels: [],
+      hiddenChannels: [],
+      windowDays: 90,
+      order: "relevance",
+      maxResults: 50,
+      minViews: 0,
+      minSubscribers: 0,
+      minMinutes: 0,
+      englishOnly: true,
+      keywordFilter: true,
+    });
   });
 });

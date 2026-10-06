@@ -120,6 +120,8 @@ export function TopBar() {
   const signalOnly = useConsole((s) => s.signalOnly);
   const busy = useConsole((s) => Boolean(s.status?.running.some((r) => r.topicId === s.topicId) || s.starting[s.topicId]));
   const filtersApply = view === "panel" || view === "stream" || view === "linkedin" || view === "youtube";
+  // The YouTube view has its own Published filter, so only Signal applies there.
+  const rangeApplies = filtersApply && view !== "youtube";
   const unscored = Boolean(data && data.totals.scored === 0);
   const signalHint = unscored ? "Nothing is scored yet, so everything shows" : "Only items scored as relevant, plus LinkedIn posts and videos not scored yet";
 
@@ -183,24 +185,28 @@ export function TopBar() {
         {filtersApply ? (
           <div className="hidden shrink-0 items-center gap-1 py-1.5 md:flex">
             <Toggle good checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
-            <Segmented<Range>
-              label="Time range"
-              value={range}
-              onChange={(v) => store.set({ range: v })}
-              options={(Object.keys(RANGE_LABELS) as Range[]).map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
-            />
+            {rangeApplies ? (
+              <Segmented<Range>
+                label="Time range"
+                value={range}
+                onChange={(v) => store.set({ range: v })}
+                options={(Object.keys(RANGE_LABELS) as Range[]).map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
+              />
+            ) : null}
           </div>
         ) : null}
       </div>
       {filtersApply ? (
         <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-1.5 md:hidden">
           <Toggle good checked={signalOnly && !unscored} disabled={unscored} onChange={(v) => store.set({ signalOnly: v })} label="Signal" hint={signalHint} />
-          <Segmented<Range>
-            label="Time range"
-            value={range}
-            onChange={(v) => store.set({ range: v })}
-            options={(Object.keys(RANGE_LABELS) as Range[]).map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
-          />
+          {rangeApplies ? (
+            <Segmented<Range>
+              label="Time range"
+              value={range}
+              onChange={(v) => store.set({ range: v })}
+              options={(Object.keys(RANGE_LABELS) as Range[]).map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
+            />
+          ) : null}
         </div>
       ) : null}
     </header>

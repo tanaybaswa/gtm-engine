@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, updateTag } from "next/cache";
 import { getDb } from "@/db";
 import { kv } from "@/db/schema";
 
@@ -10,8 +10,12 @@ const CHANGED_KEY = "radar:changed";
 /**
  * Records that data changed (a run stage finished, or someone edited a topic, a follow or a
  * watch) and marks cached payloads stale. Open consoles poll the timestamp and refetch.
+ *
+ * Edits made in the console pass readYourWrites: the next page load then waits for fresh data.
+ * Serving the old payload there made a page reloaded right after an edit render one version on
+ * the server and, once the console fetched the new one, another in the browser.
  */
-export async function markChanged(): Promise<void> {
+export async function markChanged({ readYourWrites = false }: { readYourWrites?: boolean } = {}): Promise<void> {
   const db = await getDb();
   const now = new Date();
   const value = { at: now.toISOString() };
@@ -20,9 +24,10 @@ export async function markChanged(): Promise<void> {
     .values({ key: CHANGED_KEY, value, updatedAt: now })
     .onConflictDoUpdate({ target: kv.key, set: { value, updatedAt: now } });
   try {
-    // Stale-while-revalidate: the next reader gets the old payload at once and a fresh one
-    // is built in the background.
-    revalidateTag(RADAR_TAG, "max");
+    // Runs: stale-while-revalidate, so the next reader gets the old payload at once and a fresh
+    // one is built in the background. Edits (server actions only): expire it now.
+    if (readYourWrites) updateTag(RADAR_TAG);
+    else revalidateTag(RADAR_TAG, "max");
   } catch {
     // Outside a Next.js request (the CLI, tests) there is no cache to mark.
   }

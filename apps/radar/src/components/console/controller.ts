@@ -231,6 +231,42 @@ export function createController(store: ConsoleStore, initialSummariesAt: string
     toast(value ? "Following. The next run collects from it directly." : "Unfollowed.", "good");
   }
 
+  /** Hides a YouTube channel: its videos stop being collected and shown. Following it stops too. */
+  async function hideChannel(sourceKey: string, name: string) {
+    const topicId = store.get().topicId;
+    const data = store.get().payloads[topicId];
+    const id = sourceKey.replace(/^youtube:/, "");
+    if (!data || !id) return;
+    const yt = data.topic.config.queries.youtube;
+    const config = {
+      ...data.topic.config,
+      queries: {
+        ...data.topic.config.queries,
+        youtube: {
+          ...yt,
+          hiddenChannels: [...yt.hiddenChannels.filter((c) => !c.includes(id)), `https://www.youtube.com/channel/${id}`],
+          channels: yt.channels.filter((c) => !c.includes(id)),
+        },
+      },
+    };
+    const result = await saveTopicSettings(topicId, { name: data.topic.name, description: data.topic.description, config }).catch((e: Error) => ({
+      ok: false as const,
+      error: e.message,
+    }));
+    if (!result.ok) {
+      toast(result.error, "bad");
+      return;
+    }
+    applyTopic(result.topic);
+    store.set((s) => {
+      const current = s.payloads[topicId];
+      if (!current) return {};
+      const sources = current.sources.map((src) => (src.key === sourceKey ? { ...src, followed: false } : src));
+      return { payloads: { ...s.payloads, [topicId]: { ...current, sources } } };
+    });
+    toast(`Hid ${name}. Its videos won't be collected or shown. Undo in Settings, under YouTube.`, "good");
+  }
+
   async function saveSettings(input: { name: string; description: string; config: unknown }): Promise<string | null> {
     const topicId = store.get().topicId;
     const result = await saveTopicSettings(topicId, input).catch((e: Error) => ({ ok: false as const, error: e.message }));
@@ -310,6 +346,7 @@ export function createController(store: ConsoleStore, initialSummariesAt: string
     run,
     watch,
     follow,
+    hideChannel,
     saveSettings,
     resetSettings,
     setActive,
