@@ -5,6 +5,7 @@ export const SOURCE_KINDS = [
   "blog",
   "newsletter",
   "podcast",
+  "video",
   "regulator",
   "law_firm",
   "wire",

@@ -15,6 +15,13 @@
       "when": 1790688829326,
       "tag": "0001_linkedin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791316129846,
+      "tag": "0002_youtube",
+      "breakpoints": true
     }
   ]
 }

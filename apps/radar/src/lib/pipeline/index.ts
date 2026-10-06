@@ -5,6 +5,7 @@ import { writeBrief } from "./brief";
 import { collectTopic } from "./collect";
 import { enrichTopic } from "./enrich";
 import { findLinkedInPeople } from "./linkedin-people";
+import { refreshYouTube } from "./youtube-refresh";
 import { Deadline, finishRun, saveRunProgress, startRun, type ProgressUpdate, type Trigger } from "./runs";
 
 export type StageOptions = { budgetSeconds?: number; log?: (message: string) => void };
@@ -64,6 +65,14 @@ export async function runStage(topic: Topic, stage: RunStage, trigger: Trigger, 
         stats.connectors.linkedin_people = linkedin.stat;
         stats.notes!.push(...linkedin.notes);
         if (linkedin.changed) await announce();
+      }
+      // YouTube data older than 25 days is refreshed, as YouTube's rules ask.
+      if (!deadline.near(30_000)) {
+        const refreshed = await refreshYouTube(topic, deadline, log);
+        if (refreshed.refreshed || refreshed.removed) {
+          stats.notes!.push(`${refreshed.refreshed} YouTube videos refreshed${refreshed.removed ? `, ${refreshed.removed} no longer on YouTube` : ""}`);
+          await announce();
+        }
       }
     }
     if ((stage === "enrich" || stage === "full" || stage === "brief") && !deadline.near(30_000)) {

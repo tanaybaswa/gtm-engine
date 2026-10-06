@@ -44,12 +44,36 @@ export function LinkedInIcon({ size = 24, strokeWidth = 2, className, ...rest }:
   );
 }
 
-/** Any icon the console draws: Lucide's, or the LinkedIn one above. */
+/** YouTube's play button, in the same line style. Never red here: red means a problem. */
+export function YouTubeIcon({ size = 24, strokeWidth = 2, className, ...rest }: LucideProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden={rest["aria-label"] ? undefined : true}
+      {...rest}
+    >
+      <path d="M2.5 17a24.1 24.1 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.6 49.6 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.1 24.1 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.6 49.6 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
+      <path d="m10 15 5-3-5-3z" />
+    </svg>
+  );
+}
+
+/** Any icon the console draws: Lucide's, or the LinkedIn and YouTube ones above. */
 export type IconComponent = ComponentType<LucideProps>;
 
 // Streams are told apart by icon and label, never by color alone.
 export const STREAM_ICONS: Record<StreamId, IconComponent> = {
   linkedin: LinkedInIcon,
+  youtube: YouTubeIcon,
   news: Newspaper,
   trade: Briefcase,
   legal: Scale,
@@ -63,6 +87,7 @@ export const VIEW_ICONS: Record<ViewId, IconComponent> = {
   brief: Sparkles,
   stream: Waves,
   linkedin: LinkedInIcon,
+  youtube: YouTubeIcon,
   people: Users,
   sources: Radio,
   health: Activity,

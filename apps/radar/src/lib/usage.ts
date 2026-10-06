@@ -8,6 +8,8 @@ export type Meter =
   | "x_user_reads"
   | "x_cost_microusd"
   | "serper_queries"
+  | "youtube_searches"
+  | "youtube_units"
   | "ai_cost_microusd"
   | "ai_input_tokens"
   | "ai_output_tokens";

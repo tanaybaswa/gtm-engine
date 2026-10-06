@@ -65,7 +65,7 @@ ${bullets(guide.relevance)}
 
 Origin versus echo: isOrigin is true when the item is the primary source itself: an organization's own announcement or report, a regulator's publication, a court filing, original reporting that adds new facts (an interview, an exclusive, a first report), or a first-person post by someone involved. It is false when the item summarizes or reacts to something published elsewhere; then originHint names that original (publisher, document, and date when known).
 
-People: include only real, named individuals who appear in the item, as author, quoted, mentioned or poster. Give role and organization only when the item states them; never guess. Skip generic bylines such as "Staff", famous people mentioned only in passing, and administrative contacts (press, media relations, subscriptions, event bookings).
+People: include only real, named individuals who appear in the item, as author, quoted, mentioned, poster, or speaker (a host, guest or panelist in a video, webinar or podcast). Give role and organization only when the item states them; never guess. Skip generic bylines such as "Staff", famous people mentioned only in passing, and administrative contacts (press, media relations, subscriptions, event bookings).
 
 Organizations: include ${guide.orgs} that matter to the item. Skip the publisher unless it is itself the subject.
 
@@ -107,10 +107,31 @@ export function extractPrompt(input: {
   text: string;
   truncated: boolean;
   links: { text: string; href: string }[];
+  /** A YouTube video, read from its description: Radar has no transcript. */
+  kind?: "article" | "video";
 }): string {
+  const video = input.kind === "video";
   const links = input.links.length
-    ? `\n\nLinks inside the article (use these URLs for primary sources when they match):\n${input.links.map((l) => `- ${l.text}: ${l.href}`).join("\n")}`
+    ? `\n\nLinks inside the ${video ? "description" : "article"} (use these URLs for primary sources when they match):\n${input.links.map((l) => `- ${l.text}: ${l.href}`).join("\n")}`
     : "";
+  if (video) {
+    return `This is a YouTube video. You have its title and description, not a transcript, so report only what they say.
+
+- summary: two or three sentences on what the video covers and who is in it.
+- whyItMatters: one sentence on why it matters to the readers.
+- isOrigin: true when the speakers are the people or organizations involved (their own webinar, interview or announcement).
+- primarySources: documents or announcements the description links to or names. Empty if none.
+- people: every named host, guest, panelist or speaker as speaker, with role and organization as stated. Others the description names go in as mentioned.
+- orgs: organizations that matter to the video.
+
+Title: ${input.title}
+Channel: ${input.outlet ?? "unknown"}
+URL: ${input.url}
+Published: ${input.publishedAt?.toISOString().slice(0, 10) ?? "unknown"}
+
+Description:
+${input.text}${links}`;
+  }
   return `Read this article and extract what the team needs.
 
 - summary: two or three sentences on what happened.

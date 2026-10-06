@@ -211,7 +211,8 @@ function OutcomeLine({ result }: { result: SearchResultDTO | undefined }) {
   if (result.error) return <span className="text-bad">{result.error}</span>;
   return (
     <span className="text-fg-3">
-      <span className="text-fg-2">{result.found} found</span> <TimeAgo iso={result.at} />
+      {result.label ? <span className="mr-1.5 font-medium text-fg">{result.label}</span> : null}
+      <span className="text-fg-2">{result.label ? `${result.found} recent` : `${result.found} found`}</span> <TimeAgo iso={result.at} />
       {result.ranAs ? (
         <span className="block text-warn">
           Serper&apos;s free plan refused the full search, so this ran: <code className="font-mono">{result.ranAs}</code>
@@ -237,6 +238,7 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
   const q = c.queries;
   const data = useTopicData();
   const serperOn = data?.spend.serper.enabled ?? false;
+  const youtubeOn = data?.spend.youtube.enabled ?? false;
   const searches = data?.searches;
   // Each search's latest result: news:<search>, posts:<search>, #<tag> and people:<search>.
   const outcome = (prefix: string) => (serperOn ? (value: string) => <OutcomeLine result={searches?.[`${prefix}${value}`]} /> : undefined);
@@ -395,6 +397,31 @@ function SettingsEditor({ topic }: { topic: TopicDTO }) {
               placeholder='"phrase in their headline"'
               status={outcome("people:")}
               onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, serper: { ...x.queries.serper, profiles: v } } }))}
+            />
+          </Field>
+        </div>
+      </Panel>
+
+      <Panel title="YouTube" meta={youtubeOn ? "Official YouTube Data API, with a free key" : "Off until YOUTUBE_API_KEY is set"}>
+        <div className="space-y-5">
+          <p className="text-[12.5px] leading-relaxed text-fg-3">
+            Searches run up to once a day, from a free allowance of about 100 a day shared by all topics. Followed channels are checked on every run
+            through their public feeds, at no cost, and their videos go through the keyword filters. Shorts are skipped.
+          </p>
+          <Field label="Searches" hint='Quoted phrases work best, like "AI exclusions" insurance. OR works too.'>
+            <LinesEditor
+              values={q.youtube.search}
+              placeholder='"phrase" insurance'
+              status={youtubeOn ? (v: string) => <OutcomeLine result={searches?.[`youtube:${v}`]} /> : undefined}
+              onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, youtube: { ...x.queries.youtube, search: v } } }))}
+            />
+          </Field>
+          <Field label="Channels" hint="A channel's @handle, its URL or its ID. Follow channels from the YouTube view too.">
+            <LinesEditor
+              values={q.youtube.channels}
+              placeholder="@channelhandle"
+              status={youtubeOn ? (v: string) => <OutcomeLine result={searches?.[`channel:${v}`]} /> : undefined}
+              onChange={(v) => setConfig((x) => ({ ...x, queries: { ...x.queries, youtube: { ...x.queries.youtube, channels: v } } }))}
             />
           </Field>
         </div>

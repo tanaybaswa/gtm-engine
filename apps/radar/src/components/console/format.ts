@@ -73,6 +73,7 @@ export const KIND_LABELS: Record<string, string> = {
   blog: "Blog",
   newsletter: "Newsletter",
   podcast: "Podcast",
+  video: "Video channel",
   regulator: "Regulator",
   law_firm: "Law firm",
   wire: "Press wire",

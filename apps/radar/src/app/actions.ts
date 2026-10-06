@@ -10,7 +10,7 @@ import { checkPassword, isValidSession, passwordConfigured, SESSION_COOKIE, sess
 import { config } from "@/lib/config";
 import { markChanged } from "@/lib/console/changes";
 import { toTopicDTO } from "@/lib/console/data";
-import { followState } from "@/lib/console/follow";
+import { followState, followsChannel, youtubeChannelId } from "@/lib/console/follow";
 import type { TopicDTO } from "@/lib/console/types";
 import { activeRun } from "@/lib/pipeline/runs";
 import { defaultTopics } from "@/lib/topics/defaults";
@@ -116,6 +116,14 @@ export async function setFollowed(
     next.queries.reddit.subreddits = follow
       ? [...new Set([...next.queries.reddit.subreddits, sub])]
       : next.queries.reddit.subreddits.filter((s) => s.toLowerCase() !== sub);
+  } else if (youtubeChannelId(source.key)) {
+    const id = youtubeChannelId(source.key)!;
+    const channels = next.queries.youtube.channels;
+    next.queries.youtube.channels = follow
+      ? followsChannel(channels, id)
+        ? channels
+        : [...channels, `https://www.youtube.com/channel/${id}`]
+      : channels.filter((c) => !followsChannel([c], id));
   } else if (!source.key.includes(":")) {
     const sameSite = (url: string) => domainOf(url) === source.key;
     if (follow) {

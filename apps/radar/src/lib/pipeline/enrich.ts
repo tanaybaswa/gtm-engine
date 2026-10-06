@@ -6,6 +6,7 @@ import { analystSystemPrompt, extractPrompt, triagePrompt } from "@/lib/ai/promp
 import { extractSchema, triageSchema } from "@/lib/ai/schemas";
 import { config } from "@/lib/config";
 import { sleep } from "@/lib/http";
+import { videoDetails } from "@/lib/sources/youtube";
 import { decodeGoogleNewsUrl, fetchArticle } from "./article";
 import { creditSource, saveEntities } from "./entities";
 import type { Deadline, ProgressUpdate } from "./runs";
@@ -106,7 +107,8 @@ export async function enrichTopic(
         gte(items.relevance, extractFloor),
         or(isNull(items.summary), eq(items.summary, "")),
         // LinkedIn posts are judged from what Google shows: Radar doesn't open linkedin.com.
-        inArray(items.source, ["google_news", "gdelt", "rss", "serper_news", "hacker_news"]),
+        // YouTube videos are read from their full description, through the API.
+        inArray(items.source, ["google_news", "gdelt", "rss", "serper_news", "hacker_news", "youtube"]),
       ),
     )
     .orderBy(desc(items.relevance), desc(items.publishedAt))
@@ -129,12 +131,42 @@ export async function enrichTopic(
   }
 
   if (result.triaged) result.notes.push(`${result.triaged} items scored, ${result.relevant} relevant`);
-  if (result.extracted) result.notes.push(`${result.extracted} articles read in full`);
+  if (result.extracted) result.notes.push(`${result.extracted} articles and videos read in full`);
   return result;
+}
+
+/** A video's full description, which names the speakers and often lists chapters and links. */
+async function videoText(item: Item): Promise<{ text: string; links: { text: string; href: string }[] } | null> {
+  if (!item.externalId) return null;
+  const [video] = await videoDetails([item.externalId]);
+  const description = video?.snippet?.description?.trim() ?? "";
+  if (description.length < 120) return null;
+  const links = [...new Set(description.match(/https?:\/\/[^\s)]+/g) ?? [])].slice(0, 20).map((href) => ({ text: href, href }));
+  return { text: `Channel: ${video.snippet?.channelTitle ?? item.outlet ?? "unknown"}\n\n${description.slice(0, 8000)}`, links };
 }
 
 async function extractOne(item: Item, system: string): Promise<void> {
   const db = await getDb();
+  if (item.source === "youtube") {
+    const video = await videoText(item);
+    if (!video) {
+      // Too little to read beyond the title: keep the triage result.
+      await db.update(items).set({ status: "extracted", summary: item.gist }).where(eq(items.id, item.id));
+      return;
+    }
+    const found = await structuredCall({
+      system,
+      prompt: extractPrompt({ title: item.title, outlet: item.outlet, url: item.url, publishedAt: item.publishedAt, text: video.text, truncated: false, links: video.links, kind: "video" }),
+      schema: extractSchema,
+      effort: "medium",
+    });
+    await db
+      .update(items)
+      .set({ status: "extracted", summary: found.summary, whyItMatters: found.whyItMatters, isOrigin: found.isOrigin, primarySources: found.primarySources, enrichedAt: new Date() })
+      .where(eq(items.id, item.id));
+    await saveEntities(db, item, { people: found.people, orgs: found.orgs });
+    return;
+  }
   let url = item.resolvedUrl ?? item.url;
   if (item.source === "google_news" && !item.resolvedUrl) {
     const decoded = await decodeGoogleNewsUrl(item.url);

@@ -9,7 +9,8 @@ export type SourceId =
   | "rss"
   | "x"
   | "serper_news"
-  | "linkedin";
+  | "linkedin"
+  | "youtube";
 
 /** What every connector returns before it is normalized and stored. */
 export type RawItem = {

@@ -12,6 +12,7 @@ import { Badge, RelevanceMeter, TimeAgo } from "./ui";
 import { OrgChip, PersonChip, StoryBody } from "./views/brief";
 import { Relations, WatchButton } from "./views/people";
 import { FollowButton } from "./views/sources";
+import { VideoPlayer, VideoStats } from "./views/youtube";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -53,6 +54,11 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
   return (
     <>
       <div className="px-5 pt-1 pb-4">
+        {item.source === "youtube" ? (
+          <div className="mb-3">
+            <VideoPlayer item={item} />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-fg-3">
           <span className="inline-flex items-center gap-1 text-fg-2">
             <Icon size={12} /> {stream}
@@ -76,7 +82,7 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
           {via !== stream && via !== outlet ? <span className="font-mono text-[10.5px]">via {via}</span> : null}
         </div>
         <h2 className="mt-2 text-[18px] leading-snug font-semibold tracking-tight">{item.title}</h2>
-        {author ? (
+        {author && item.source !== "youtube" ? (
           <div className="mt-1 text-[12.5px] text-fg-2">
             By{" "}
             {item.authorUrl ? (
@@ -97,8 +103,9 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
           ) : null}
           {item.category ? <Badge>{CATEGORY_LABELS[item.category] ?? item.category}</Badge> : null}
         </div>
+        {item.source === "youtube" ? <VideoStats item={item} className="mt-2 block" /> : null}
         <div className="mt-4">
-          <OpenButton href={item.href} />
+          <OpenButton href={item.href} label={item.source === "youtube" ? "Watch on YouTube" : undefined} />
         </div>
       </div>
 
@@ -174,7 +181,11 @@ function ItemDetail({ item, data }: { item: ItemDTO; data: ConsoleData }) {
 
       {item.matchedQuery ? (
         <Section title="Found by">
-          <code className="font-mono text-[12px] break-anywhere text-fg-2">{item.matchedQuery}</code>
+          {item.matchedQuery.startsWith("channel:") ? (
+            <span className="text-[13px] text-fg-2">Following the channel {item.matchedQuery.slice("channel:".length)}</span>
+          ) : (
+            <code className="font-mono text-[12px] break-anywhere text-fg-2">{item.matchedQuery}</code>
+          )}
         </Section>
       ) : null}
     </>

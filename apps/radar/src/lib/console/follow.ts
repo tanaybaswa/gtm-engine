@@ -3,10 +3,16 @@ import { domainOf } from "@/lib/url";
 
 type SourceLike = { key: string; followed: boolean; feedUrl: string | null };
 
-/** Websites (followed through their feed), X accounts and subreddits can be followed. */
+/** Websites (followed through their feed), X accounts, subreddits and YouTube channels can be followed. */
 export function isFollowable(key: string): boolean {
-  return key.startsWith("x:@") || key.startsWith("reddit:r/") || !key.includes(":");
+  return key.startsWith("x:@") || key.startsWith("reddit:r/") || key.startsWith("youtube:") || !key.includes(":");
 }
+
+/** "youtube:UC123..." -> "UC123...". */
+export const youtubeChannelId = (key: string) => (key.startsWith("youtube:") ? key.slice("youtube:".length) : null);
+
+/** Whether a topic's channel list already has this channel, as an ID or a channel URL. */
+export const followsChannel = (channels: string[], id: string) => channels.some((c) => c.trim() === id || c.includes(`/channel/${id}`));
 
 /** A source counts as followed when the topic already collects from it directly. */
 export function followState(source: SourceLike, config: TopicConfig): { followed: boolean; feedUrl: string | null } {
@@ -19,6 +25,8 @@ export function followState(source: SourceLike, config: TopicConfig): { followed
     const sub = source.key.slice("reddit:r/".length);
     return { followed: queries.reddit.subreddits.some((r) => r.toLowerCase() === sub), feedUrl: null };
   }
+  const channel = youtubeChannelId(source.key);
+  if (channel) return { followed: followsChannel(queries.youtube.channels, channel), feedUrl: null };
   const feed = feeds.find((f) => f.url === source.feedUrl || domainOf(f.url) === source.key);
   return { followed: Boolean(feed), feedUrl: feed?.url ?? source.feedUrl };
 }
@@ -29,6 +37,7 @@ export function sourceLink(key: string, homepage: string | null): string | null 
   if (key.startsWith("x:@")) return `https://x.com/${key.slice(3)}`;
   if (key.startsWith("reddit:r/")) return `https://www.reddit.com/r/${key.slice("reddit:r/".length)}/`;
   if (key.startsWith("linkedin:")) return `https://www.linkedin.com/in/${key.slice("linkedin:".length)}`;
+  if (key.startsWith("youtube:")) return `https://www.youtube.com/channel/${key.slice("youtube:".length)}`;
   if (!key.includes(":")) return `https://${key}`;
   return null;
 }

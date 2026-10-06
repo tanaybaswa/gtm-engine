@@ -117,7 +117,7 @@ function PostRow({ post, name, threshold, onAccount }: { post: ItemDTO; name?: s
           <button type="button" onClick={() => ctl.open({ kind: "item", id: post.id })} className="mt-1 block text-left">
             <span className="block text-[14px] leading-snug font-medium text-fg decoration-fg-3/40 underline-offset-[3px] group-hover:underline">{post.title}</span>
             {post.snippet && post.snippet !== post.title ? (
-              <span className="mt-1 line-clamp-3 block text-[13px] leading-relaxed text-fg-2">{post.snippet}</span>
+              <span className="mt-1 line-clamp-3 text-[13px] leading-relaxed text-fg-2">{post.snippet}</span>
             ) : null}
           </button>
           {tags.length ? (

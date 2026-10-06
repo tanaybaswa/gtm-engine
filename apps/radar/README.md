@@ -19,7 +19,7 @@ If a tool reads every free source on a niche market each day and hands us the fe
 
 ## How it works
 
-1. **Collect** (twice a day, for every active topic). Google News searches, 46 verified feeds (trade press, law firms, press wires, regulators, AI incident trackers, newsletters, podcasts, and the companies writing AI cover), Hacker News, Reddit and GDELT. Optional: X through the official API, and Serper for Google News publisher links and for LinkedIn: public posts, articles, hashtags and people.
+1. **Collect** (twice a day, for every active topic). Google News searches, 46 verified feeds (trade press, law firms, press wires, regulators, AI incident trackers, newsletters, podcasts, and the companies writing AI cover), Hacker News, Reddit and GDELT. Optional: X through the official API, Serper for Google News publisher links and for LinkedIn (public posts, articles, hashtags and people), and YouTube through its official API.
 2. **Clean.** Keyword rules drop off-topic items from general sources. Duplicates are removed by URL and by headline plus outlet.
 3. **Judge.** Claude scores each item from 0 to 100, decides whether it is the origin or an echo of something else, and pulls out the people and organizations in it.
 4. **Read.** For the most relevant items, Radar resolves Google News links to the publisher, reads the article, and extracts the primary sources it relies on (reports, filings, policy wordings), plus quotes and roles.
@@ -32,10 +32,11 @@ One screen, one topic at a time, with every topic in the rail on the left. Views
 
 | View | What it shows |
 | --- | --- |
-| Panel | The viewing panel: live stats with 14-day trends, today's brief, and one column per stream (news, LinkedIn, trade press, legal and regulatory, companies and wires, research and newsletters, social and community). |
+| Panel | The viewing panel: live stats with 14-day trends, today's brief, and one column per stream (news, LinkedIn, YouTube, trade press, legal and regulatory, companies and wires, research and newsletters, social and community). |
 | Brief | Today's stories, origin first, with primary sources, echoes, and the people and organizations involved. Earlier briefs are one click away. |
 | Stream | Everything in one list, newest or most relevant first, filtered by stream or to origins only. |
 | LinkedIn | Only LinkedIn: posts and articles with their hashtags, and the people behind them. |
+| YouTube | Webinars, talks, podcasts and demos, with the people speaking in them and the channels behind them. Videos play inside Radar. |
 | People | Everyone found: role, organization, how they appear (quoted, author, posted), with their quotes. Organizations are on a second tab. Star someone to watch them. |
 | Sources | Every outlet, feed, account and community, ranked by how often it is the origin. Follow one to collect from it directly. |
 | Health | Run buttons with live progress, source health, spend against caps, the schedule, and run history. |
@@ -60,7 +61,7 @@ The key sits at the bottom of the rail and in the **?** dialog. A dark theme is 
 | --- | --- |
 | ⌘K or Ctrl+K | Search items, people and sources, or run a command |
 | / | Filter the current view |
-| 1 to 8 | Switch views |
+| 1 to 9 | Switch views |
 | [ and ] | Previous or next topic |
 | j, k, Enter, o | Move through the stream, open details, open the original |
 | ? | All shortcuts |
@@ -81,6 +82,17 @@ With `SERPER_API_KEY` set, Radar finds public LinkedIn posts, articles and peopl
 Posts, hashtags and Serper news searches run up to once a day, people searches up to once a week. When all the topics' searches would pass the monthly cap, Radar spaces them out to fit, so searching carries on all month. The **LinkedIn** view has the posts on the left, with hashtag and account filters, and the people on the right: who posted, who was matched from the news, and who turned up in a people search. Click someone to see all their posts. New posts show under Signal until Claude has scored them.
 
 Settings, under LinkedIn, shows what each search found last time. Serper's free plan returns at most 10 results a search and refuses some complex searches; Radar then runs a simpler form and says so under the search. Topics created before people searches and hashtags existed get a few, taken from their LinkedIn searches.
+
+### YouTube
+
+With `YOUTUBE_API_KEY` set (a free key: in Google Cloud, enable "YouTube Data API v3" and create an API key), Radar finds videos for each topic in two ways:
+
+- **Searches** through the official YouTube Data API, each up to once a day. Google allows about 100 searches a day per key, shared by all topics; Radar stops at `YOUTUBE_DAILY_SEARCHES` (default 90). Quoted phrases work best, like `"AI exclusions" insurance`.
+- **Channels** you follow, read through their public feeds on every run, at no cost. Their videos go through the topic's keyword filters, since most channels cover more than one subject. Follow a channel from the YouTube view, or paste its @handle, URL or ID in Settings.
+
+Shorts and streams that haven't started are skipped. Claude scores each video from its title and description, and reads the most relevant ones from their full description: who hosts, who the guests and panelists are, and what they cover. Those speakers join People, so the LinkedIn lookups find their profiles: a list of people already speaking publicly about the market. There are no transcripts: YouTube's API only gives captions to a video's owner.
+
+YouTube's rules allow keeping data about other people's videos for 30 days, so Radar refreshes every video's title, description and counts after 25 days (one API unit per 50 videos) and blanks the ones that are gone. The key goes in a request header, never a URL, so it can't leak into error messages.
 
 ### Why it's fast
 
@@ -124,6 +136,7 @@ The free plan runs each job once a day and may start it anywhere within the hour
 | Vercel, Neon, Google News, feeds, Hacker News, Reddit RSS, GDELT | Free |
 | Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
 | X API (optional) | Pay per use, $0.005 per post read. Radar stops at `X_MONTHLY_BUDGET_USD` (default $10). |
+| YouTube (optional) | Free. A key gives about 100 searches a day; video details cost 1 unit per 50 videos out of 10,000 a day, and followed channels cost nothing. Four topics use about 12 searches a day. |
 | Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use up to about 450 a month. Radar keeps to `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics: with several topics, each search runs every few days instead of daily. Raise the cap to search more often. |
 
 The Health view shows this month's spend against each cap.
@@ -135,7 +148,7 @@ Each topic's settings live in the database and are editable in Settings:
 - **Description:** Claude reads it to judge relevance.
 - **How Claude judges items:** who reads the brief, what scores high or low, and which organizations matter. Left empty, the topic's defaults (or a general guide) apply.
 - **Keyword groups:** filter general feeds. Every group needs a match, and a trailing `*` matches word prefixes.
-- **Searches:** one set per source, plus LinkedIn posts, hashtags and people searches.
+- **Searches:** one set per source, plus LinkedIn posts, hashtags and people searches, and YouTube searches and channels.
 - **Feeds:** "filter": false keeps every item from a feed that is already on-topic.
 - **Watchlist:** organizations and people Claude should always extract.
 
@@ -144,7 +157,7 @@ The defaults are in `src/lib/topics/defaults.ts`, and **Reset to defaults** rest
 ## Ground rules
 
 - Radar stores headlines, short snippets, its own summaries and links. It does not keep full articles.
-- It reads public pages only, never logs in to LinkedIn or X, and uses official APIs wherever one exists. LinkedIn results come from Google; Radar doesn't open linkedin.com.
+- It reads public pages only, never logs in to LinkedIn or X, and uses official APIs wherever one exists. LinkedIn results come from Google; Radar doesn't open linkedin.com. YouTube comes through its official API and public channel feeds; Radar doesn't scrape youtube.com or download captions.
 - Requests go out with a generic user agent that carries no names or emails.
 - Google News RSS is licensed for personal use. Treat it as a prototyping source. For production, add `SERPER_API_KEY`, which returns the same results with publisher links.
 
@@ -153,7 +166,7 @@ The defaults are in `src/lib/topics/defaults.ts`, and **Reset to defaults** rest
 | Path | Contents |
 | --- | --- |
 | `src/lib/sources/` | One file per source, plus feed parsing, feed discovery, the Serper client and LinkedIn result parsing |
-| `src/lib/pipeline/` | Collect, LinkedIn people, enrich (score and read), brief, and run bookkeeping |
+| `src/lib/pipeline/` | Collect, LinkedIn people, YouTube refreshes, enrich (score and read), brief, and run bookkeeping |
 | `src/lib/ai/` | Claude client with budget and refusal handling, prompts, output schemas |
 | `src/lib/topics/` | Topic settings, defaults, storage, and Claude's design for new topics |
 | `src/lib/console/` | The cached per-topic payload, live status, and change tracking |
@@ -174,6 +187,7 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 - **Speed** (Sep 29). The first version rendered every page on the server, with five to eight database round trips to a Neon database that sleeps when idle, so each tab took seconds. The console now serves one cached payload per topic and switches views in the browser: 20 to 60 ms per view and about 15 ms per topic in local tests.
 - **Serper's free plan** (Sep 29). It refuses searches that ask for 20 results ("Query pattern not allowed for free accounts"); 10 works. Refusals cost nothing, so Radar retries in simpler forms. The first real collection found 66 LinkedIn posts and articles and 20 people from three people searches.
 - **LinkedIn titles.** Google shows posts in half a dozen shapes ("Name's Post", "Title | Name", hashtags only, a byline cut short), so a name is only kept when it matches the handle in the link. Matching people by name alone once picked a namesake for the FTC chair, so a match now also needs their organization on the profile.
+- **YouTube** (Oct 6). The first collection for AI liability insurance found 19 videos in about a second with three searches and three channels: an AI liability insurance webinar from the Singapore College of Insurance, Alliant on AI exclusions, a Gallagher Re deputy head of insurtech on a podcast, and several explainers of the ISO CG 40 47 exclusion. YouTube search also returns some noise (other languages, adjacent topics), which Claude's scores push down.
 - **Paywalls and roundups.** Paywalled articles (The Insurer) can't be read in full, so their people only come from the headline. Roundup articles quote big names about unrelated news, which can put them on a story.
 
 ## Next

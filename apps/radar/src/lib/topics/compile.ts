@@ -26,6 +26,7 @@ const designSchema = z.object({
   linkedin: z.array(z.string()),
   hashtags: z.array(z.string()),
   linkedinPeople: z.array(z.string()),
+  youtube: z.array(z.string()),
   feeds: z.array(z.object({ url: z.string(), name: z.string(), kind: z.enum(SOURCE_KINDS), onTopic: z.boolean() })),
   watchOrgs: z.array(z.string()),
   watchPeople: z.array(z.string()),
@@ -51,6 +52,7 @@ Given a topic request, design everything Radar needs:
 - linkedin: 3 to 5 LinkedIn post searches, each a single quoted phrase people would write in a post, such as "AI liability". Keep them that simple: the search service refuses complex ones.
 - hashtags: 3 to 6 hashtags people use on LinkedIn for this topic, without the #, such as AIinsurance.
 - linkedinPeople: 2 to 4 quoted phrases that people working on this topic put in their LinkedIn headline or About section, such as "AI insurance".
+- youtube: 2 to 4 YouTube searches that find webinars, conference talks, podcasts and demos on the topic: a quoted phrase plus a word that pins down the field, such as "AI exclusions" insurance. OR between phrases works.
 - feeds: 6 to 16 RSS or Atom feeds you are confident exist: trade publications, company newsrooms, regulators, law firm blogs, research groups, newsletters (Substack feeds end in /feed), podcasts. onTopic is true only when a feed is entirely about this topic; general feeds are filtered by the keywords. Every feed is checked live and dropped if it fails, so prefer ones you are sure of.
 - watchOrgs: 5 to 20 organizations central to the topic. watchPeople: people clearly central to it, only when you are confident (up to 10).
 
@@ -92,6 +94,7 @@ function basicConfig(name: string): TopicConfig {
       reddit: { search: [phrase], subreddits: [] },
       x: { search: [`${phrase} -is:retweet lang:en`], accounts: [] },
       serper: { news: [name], linkedin: [phrase], profiles: [phrase] },
+      youtube: { search: [phrase], channels: [] },
     },
   });
 }
@@ -135,6 +138,7 @@ export async function compileTopic(input: { name: string; brief: string }): Prom
         profiles: clean(design.linkedinPeople, 4),
       },
       hashtags: clean(design.hashtags.map((t) => t.replace(/^#/, "").replace(/\s+/g, "")), 6),
+      youtube: { search: clean(design.youtube, 4), channels: [] },
     },
     feeds,
     watch: { orgs: clean(design.watchOrgs, 25), people: clean(design.watchPeople, 12) },
@@ -156,7 +160,7 @@ export async function compileTopic(input: { name: string; brief: string }): Prom
     description: design.description.trim() || brief || name,
     config: topicConfig,
     notes: [
-      `${topicConfig.queries.googleNews.length} news searches, ${feeds.length} feeds, ${topicConfig.queries.hashtags.length} hashtags, ${topicConfig.watch.orgs.length} organizations to watch.`,
+      `${topicConfig.queries.googleNews.length} news searches, ${feeds.length} feeds, ${topicConfig.queries.hashtags.length} hashtags, ${topicConfig.queries.youtube.search.length} YouTube searches, ${topicConfig.watch.orgs.length} organizations to watch.`,
       ...(dropped > 0 ? [`${dropped} suggested feeds didn't respond and were left out.`] : []),
     ],
   };

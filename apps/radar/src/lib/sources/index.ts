@@ -6,8 +6,9 @@ import { rss } from "./rss";
 import { serper } from "./serper";
 import type { Connector } from "./types";
 import { x } from "./x";
+import { youtube } from "./youtube";
 
-export const connectors: Connector[] = [googleNews, gdelt, rss, hackerNews, reddit, serper, x];
+export const connectors: Connector[] = [googleNews, gdelt, rss, hackerNews, reddit, serper, youtube, x];
 
 export function connectorLabel(id: string): string {
   if (id === "linkedin") return "LinkedIn";
