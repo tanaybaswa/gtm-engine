@@ -22,6 +22,7 @@ describe("topic config", () => {
     });
     expect(config.queries.serper.profiles).toEqual(['"parametric insurance"', '"cat bond"']);
     expect(config.queries.hashtags).toEqual(["ParametricInsurance", "CatBond"]);
+    expect(config.queries.youtube).toEqual({ search: ['"parametric insurance"', '"cat bond"'], channels: [] });
   });
 
   it("leaves saved people searches and hashtags alone, even when empty", () => {
@@ -37,5 +38,6 @@ describe("topic config", () => {
     const config = topicConfigSchema.parse({ ...base, queries: {} });
     expect(config.queries.serper).toEqual({ news: [], linkedin: [], profiles: [] });
     expect(config.queries.hashtags).toEqual([]);
+    expect(config.queries.youtube).toEqual({ search: [], channels: [] });
   });
 });

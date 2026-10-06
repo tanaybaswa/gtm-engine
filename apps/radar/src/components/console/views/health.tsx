@@ -209,6 +209,14 @@ export function HealthView() {
                 format={(n) => n.toLocaleString()}
                 off={data.spend.serper.enabled ? undefined : "Off: no key"}
               />
+              <Meter
+                label="YouTube searches today"
+                daily
+                used={data.spend.youtube.searchesToday}
+                cap={data.spend.youtube.cap}
+                format={(n) => n.toLocaleString()}
+                off={data.spend.youtube.enabled ? undefined : "Off: no key"}
+              />
             </div>
           </Panel>
           <Panel title="Schedule" meta={timeZone.replaceAll("_", " ")}>

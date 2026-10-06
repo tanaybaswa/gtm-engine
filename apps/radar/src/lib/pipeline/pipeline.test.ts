@@ -324,6 +324,146 @@ describe("serper pacing", () => {
   });
 });
 
+describe("youtube", () => {
+  it("searches, reads followed channels, skips Shorts, and keeps the key out of URLs", async () => {
+    const { youtube, youtubeResults, youtubeSearchesToday } = await import("@/lib/sources/youtube");
+    const { getDefaultTopic } = await import("@/lib/topics/store");
+    const topic = (await getDefaultTopic())!;
+    const config = structuredClone(topic.config);
+    config.queries.youtube = { search: ['"AI exclusions" insurance'], channels: ["https://www.youtube.com/channel/UCcXFMZ7LQas6Uf0Pmy5opfA", "not a channel"] };
+    const saved = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "test-youtube-key";
+    const now = new Date().toISOString();
+    const video = (id: string, duration: string, title: string) => ({
+      id,
+      snippet: { publishedAt: now, channelId: "UCcXFMZ7LQas6Uf0Pmy5opfA", channelTitle: "Age of the MGA", title, description: "Jeremy Epstein, Founder & CEO of Mayflower Specialty, on AI liability." },
+      contentDetails: { duration },
+      statistics: { viewCount: "22" },
+    });
+    const requests: { url: string; key: string | null }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        const headers = (init.headers ?? {}) as Record<string, string>;
+        requests.push({ url, key: headers["x-goog-api-key"] ?? null });
+        if (url.includes("/youtube/v3/search")) return Response.json({ items: [{ id: { videoId: "aaaaaaaaaaa" } }, { id: { videoId: "bbbbbbbbbbb" } }] });
+        if (url.includes("/feeds/videos.xml")) {
+          return new Response(`<feed><title>Age of the MGA</title><entry><yt:videoId>ccccccccccc</yt:videoId><published>${now}</published></entry></feed>`);
+        }
+        if (url.includes("/youtube/v3/videos")) {
+          return Response.json({
+            items: [video("aaaaaaaaaaa", "PT35M", "AI exclusions explained"), video("bbbbbbbbbbb", "PT40S", "Quick take"), video("ccccccccccc", "PT1M17S", "AI Liability Isn't Just Cyber")],
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+    try {
+      const before = await youtubeSearchesToday();
+      const infos: string[] = [];
+      const context = { topic: { ...topic, config }, since: new Date(Date.now() - 36 * 3_600_000), lookbackHours: 36, log: () => {}, info: (m: string) => infos.push(m) };
+      const found = await youtube.collect(context);
+      expect(found.map((i) => [i.externalId, i.applyKeywordFilter])).toEqual([
+        ["aaaaaaaaaaa", false],
+        ["ccccccccccc", true],
+      ]);
+      expect(infos.join(" ")).toMatch(/1 Shorts and upcoming streams skipped/);
+      expect(await youtubeSearchesToday()).toBe(before + 1);
+      // The key travels in a header only: request URLs end up in error messages.
+      expect(requests.some((r) => r.url.includes("test-youtube-key"))).toBe(false);
+      expect(requests.filter((r) => r.url.includes("googleapis.com")).every((r) => r.key === "test-youtube-key")).toBe(true);
+      const results = await youtubeResults(topic.id);
+      expect(results['youtube:"AI exclusions" insurance']).toMatchObject({ found: 2 });
+      expect(results["channel:https://www.youtube.com/channel/UCcXFMZ7LQas6Uf0Pmy5opfA"]).toMatchObject({ found: 1, label: "Age of the MGA" });
+      expect(results["channel:not a channel"]?.error).toMatch(/Not a channel/);
+      // Straight away again: the search waits for tomorrow, the channel feed is read again for free.
+      const searches = requests.filter((r) => r.url.includes("/search")).length;
+      await youtube.collect(context);
+      expect(requests.filter((r) => r.url.includes("/search")).length).toBe(searches);
+      expect(requests.filter((r) => r.url.includes("/feeds/")).length).toBe(2);
+    } finally {
+      vi.unstubAllGlobals();
+      if (saved === undefined) delete process.env.YOUTUBE_API_KEY;
+      else process.env.YOUTUBE_API_KEY = saved;
+    }
+  });
+});
+
+describe("youtube reading", () => {
+  it("reads a relevant video from its description and saves its speakers", async () => {
+    const { getDb } = await import("@/db");
+    const { items, people, personMentions } = await import("@/db/schema");
+    const { getDefaultTopic } = await import("@/lib/topics/store");
+    const { enrichTopic } = await import("./enrich");
+    const { Deadline } = await import("./runs");
+    const { eq } = await import("drizzle-orm");
+    const topic = (await getDefaultTopic())!;
+    const db = await getDb();
+    const [video] = await db
+      .insert(items)
+      .values({
+        topicId: topic.id,
+        source: "youtube",
+        externalId: "9IT1CwuI4Vo",
+        url: "https://www.youtube.com/watch?v=9IT1CwuI4Vo",
+        canonicalUrl: "https://youtube.com/watch?v=9IT1CwuI4Vo",
+        titleKey: "ai liability insurtech innovation",
+        title: "AI Liability, Insurtech Innovation & The Future of Reinsurance",
+        outlet: "The InsurTech Geek Podcast",
+        sourceKey: "youtube:UCzTi0B_BHft1O4hmM8_ehoQ",
+        status: "triaged",
+        relevance: 90,
+        gist: "Gallagher Re's Freddie Scarratt on AI liability.",
+      })
+      .returning({ id: items.id });
+    const saved = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "test-youtube-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          items: [
+            {
+              id: "9IT1CwuI4Vo",
+              snippet: {
+                publishedAt: "2026-07-10T12:00:00Z",
+                channelId: "UCzTi0B_BHft1O4hmM8_ehoQ",
+                channelTitle: "The InsurTech Geek Podcast",
+                title: "AI Liability, Insurtech Innovation & The Future of Reinsurance",
+                description:
+                  "Freddie Scarratt, Global Deputy Head of InsurTech at Gallagher Re, joins hosts James Benham and Rob Galbraith to explore AI liability, insurtech's shift from disruption to partnership, and why risk-originating businesses can never scale the way SaaS companies do. Report: https://example.com/ai-risk-report",
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    replies.push({
+      summary: "Freddie Scarratt of Gallagher Re discusses AI liability.",
+      whyItMatters: "A reinsurer's view on pricing AI risk.",
+      isOrigin: true,
+      primarySources: [{ title: "AI risk report", url: "https://example.com/ai-risk-report", kind: "report", publisher: "Gallagher Re" }],
+      people: [{ name: "Freddie Scarratt", role: "Global Deputy Head of InsurTech", org: "Gallagher Re", relation: "speaker", quote: null }],
+      orgs: [{ name: "Gallagher Re", kind: "reinsurer", relation: "subject" }],
+    });
+    try {
+      await enrichTopic(topic, new Deadline(120), () => {});
+      const [row] = await db.select().from(items).where(eq(items.id, video.id));
+      expect(row).toMatchObject({ status: "extracted", summary: "Freddie Scarratt of Gallagher Re discusses AI liability.", isOrigin: true });
+      const speakers = await db
+        .select({ name: people.name, relation: personMentions.relation })
+        .from(personMentions)
+        .innerJoin(people, eq(people.id, personMentions.personId))
+        .where(eq(personMentions.itemId, video.id));
+      expect(speakers).toEqual([{ name: "Freddie Scarratt", relation: "speaker" }]);
+    } finally {
+      vi.unstubAllGlobals();
+      if (saved === undefined) delete process.env.YOUTUBE_API_KEY;
+      else process.env.YOUTUBE_API_KEY = saved;
+    }
+  });
+});
+
 describe("prompts", () => {
   it("never contain em dashes", async () => {
     const { analystSystemPrompt, briefPrompt, extractPrompt, triagePrompt } = await import("@/lib/ai/prompts");

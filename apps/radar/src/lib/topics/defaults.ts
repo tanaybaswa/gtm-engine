@@ -179,6 +179,15 @@ export const aiLiabilityInsurance: TopicSeed = {
         profiles: ['"AI liability"', '"AI insurance"', '"affirmative AI"'],
       },
       hashtags: ["AIinsurance", "AIliability", "silentAI"],
+      youtube: {
+        search: ['"AI liability" insurance', '"AI exclusions" insurance', '"silent AI" OR "affirmative AI" insurance'],
+        // Insurance shows that keep coming back to AI risk. The keyword filter keeps their AI episodes.
+        channels: [
+          "https://www.youtube.com/channel/UCcXFMZ7LQas6Uf0Pmy5opfA", // Age of the MGA
+          "https://www.youtube.com/channel/UCzTi0B_BHft1O4hmM8_ehoQ", // The InsurTech Geek Podcast
+          "https://www.youtube.com/channel/UCytvKBacFpNKk9sVZXUw1kA", // Insurtech Insights
+        ],
+      },
     },
     feeds,
     watch: {

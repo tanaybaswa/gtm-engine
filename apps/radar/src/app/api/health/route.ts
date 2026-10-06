@@ -82,7 +82,12 @@ export async function GET() {
   }
 
   // Which optional services are switched on (never their keys).
-  const services = { claude: config.aiEnabled(), serper: Boolean(config.serperApiKey()), x: Boolean(config.xBearerToken()) };
+  const services = {
+    claude: config.aiEnabled(),
+    serper: Boolean(config.serperApiKey()),
+    youtube: Boolean(config.youtubeApiKey()),
+    x: Boolean(config.xBearerToken()),
+  };
 
   const ok = database.ok && consoleData.ok;
   return Response.json(

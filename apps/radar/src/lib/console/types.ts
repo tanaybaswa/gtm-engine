@@ -8,6 +8,7 @@ import type { TopicConfig } from "@/lib/topics/types";
 export const STREAMS = [
   { id: "news", label: "News", hint: "News searches and general publications" },
   { id: "linkedin", label: "LinkedIn", hint: "Public LinkedIn posts and articles that Google has found" },
+  { id: "youtube", label: "YouTube", hint: "Webinars, talks, podcasts and demos on YouTube" },
   { id: "trade", label: "Trade press", hint: "Industry publications" },
   { id: "legal", label: "Legal and regulatory", hint: "Law firms, regulators and courts" },
   { id: "companies", label: "Companies and wires", hint: "Company blogs and press releases" },
@@ -21,6 +22,7 @@ const SOCIAL_CONNECTORS = new Set(["x", "reddit", "hacker_news"]);
 /** Which stream an item belongs to: LinkedIn and social connectors first, then the kind of source. */
 export function streamOf(source: string, kind: string | null | undefined): StreamId {
   if (source === "linkedin") return "linkedin";
+  if (source === "youtube") return "youtube";
   if (SOCIAL_CONNECTORS.has(source)) return "social";
   switch (kind) {
     case "trade_press":
@@ -53,6 +55,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   reddit: "Reddit",
   serper_news: "Serper",
   linkedin: "LinkedIn",
+  youtube: "YouTube",
   x: "X",
 };
 
@@ -65,6 +68,7 @@ export const CONNECTOR_LABELS: Record<string, string> = {
   reddit: "Reddit",
   serper_news: "Serper (news and LinkedIn)",
   linkedin_people: "LinkedIn people (Serper)",
+  youtube: "YouTube",
   x: "X",
 };
 
@@ -209,12 +213,14 @@ export type SpendDTO = {
   ai: { enabled: boolean; usd: number; capUsd: number };
   x: { enabled: boolean; usd: number; capUsd: number };
   serper: { enabled: boolean; queries: number; cap: number };
+  /** YouTube searches are capped per day, not per month. */
+  youtube: { enabled: boolean; searchesToday: number; cap: number };
 };
 
 export type DailyCount = { date: string; items: number; relevant: number };
 
 /** A Serper search's latest result, shown under it in Settings. */
-export type SearchResultDTO = { found: number; ranAs?: string; error?: string; at: string };
+export type SearchResultDTO = { found: number; ranAs?: string; error?: string; label?: string; at: string };
 
 export type ConsoleData = {
   /** When this payload was assembled (start of the build). */
@@ -226,7 +232,10 @@ export type ConsoleData = {
   people: PersonDTO[];
   orgs: OrgDTO[];
   profiles: ProfileDTO[];
-  /** Serper searches' latest results, by key: news:<search>, posts:<search>, #<tag>, people:<search>, matching. */
+  /**
+   * Each search's latest result, by key: news:<search>, posts:<search>, #<tag>, people:<search>,
+   * matching (Serper), and youtube:<search>, channel:<channel> (YouTube).
+   */
   searches: Record<string, SearchResultDTO>;
   sources: SourceDTO[];
   runs: RunDTO[];

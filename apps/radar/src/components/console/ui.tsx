@@ -1,7 +1,7 @@
 "use client";
 
-import { LoaderCircle, type LucideIcon } from "lucide-react";
-import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { LoaderCircle, type LucideIcon, type LucideProps } from "lucide-react";
+import { useState, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 import { formatDateTime, timeAgo } from "./format";
 import { useConsole } from "./store";
 
@@ -156,7 +156,21 @@ export function RelevanceMeter({ value, threshold }: { value: number | null; thr
 export const capFill = (pct: number) => (pct >= 90 ? "bg-bad-fill" : pct >= 75 ? "bg-warn-fill" : "bg-fg-3/60");
 
 /** Spend or quota against a cap. Turns yellow, then red with a label, as it nears the cap. */
-export function Meter({ label, used, cap, format, off }: { label: string; used: number; cap: number; format: (n: number) => string; off?: string }) {
+export function Meter({
+  label,
+  used,
+  cap,
+  format,
+  off,
+  daily = false,
+}: {
+  label: string;
+  used: number;
+  cap: number;
+  format: (n: number) => string;
+  off?: string;
+  daily?: boolean;
+}) {
   const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
   const near = pct >= 90;
   return (
@@ -170,7 +184,11 @@ export function Meter({ label, used, cap, format, off }: { label: string; used: 
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
         <div className={`h-full rounded-full ${capFill(pct)}`} style={{ width: `${off ? 0 : pct}%` }} />
       </div>
-      {near && !off ? <div className="mt-1 text-[11.5px] text-bad">Near the monthly cap. Paid calls stop at the cap.</div> : null}
+      {near && !off ? (
+        <div className="mt-1 text-[11.5px] text-bad">
+          {daily ? "Near today's cap. Searching stops at the cap and resumes tomorrow." : "Near the monthly cap. Paid calls stop at the cap."}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -266,7 +284,7 @@ export function StatTile({
   );
 }
 
-export function Empty({ icon: Icon, title, children, action }: { icon?: LucideIcon; title: string; children?: ReactNode; action?: ReactNode }) {
+export function Empty({ icon: Icon, title, children, action }: { icon?: ComponentType<LucideProps>; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
       {Icon ? (

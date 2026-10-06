@@ -38,13 +38,14 @@ const toHashtag = (phrase: string) =>
     .join("")
     .replace(/[^\p{L}\p{N}_]/gu, "");
 
-// Topics saved before people searches and hashtags existed get them from their LinkedIn
-// searches. Once saved, even as empty lists, they're left alone.
+// Topics saved before people searches, hashtags and YouTube existed get them from their
+// LinkedIn searches. Once saved, even as empty lists, they're left alone.
 function fillLinkedInDefaults(input: unknown): unknown {
-  const config = input as { queries?: { serper?: { linkedin?: unknown; profiles?: unknown }; hashtags?: unknown } } | null;
+  const config = input as { queries?: { serper?: { linkedin?: unknown; profiles?: unknown }; hashtags?: unknown; youtube?: unknown } } | null;
   const queries = config?.queries;
   const serper = queries?.serper;
-  if (!serper || !Array.isArray(serper.linkedin) || (serper.profiles !== undefined && queries.hashtags !== undefined)) return input;
+  if (!serper || !Array.isArray(serper.linkedin)) return input;
+  if (serper.profiles !== undefined && queries.hashtags !== undefined && queries.youtube !== undefined) return input;
   const phrases = linkedInPhrases(serper.linkedin.filter((q): q is string => typeof q === "string"));
   return {
     ...config,
@@ -52,6 +53,7 @@ function fillLinkedInDefaults(input: unknown): unknown {
       ...queries,
       serper: { ...serper, profiles: serper.profiles ?? phrases.slice(0, 3).map((p) => `"${p}"`) },
       hashtags: queries.hashtags ?? phrases.filter((p) => p.split(" ").length <= 3).slice(0, 3).map(toHashtag),
+      youtube: queries.youtube ?? { search: phrases.slice(0, 3).map((p) => `"${p}"`), channels: [] },
     },
   };
 }
@@ -89,6 +91,14 @@ const configShape = z.object({
       .default({ news: [], linkedin: [], profiles: [] }),
     // Hashtags, without the #, searched on LinkedIn (and on X when X is on).
     hashtags: z.array(z.string()).default([]),
+    youtube: z
+      .object({
+        // YouTube searches, each run once a day with the YouTube Data API.
+        search: z.array(z.string()).default([]),
+        // Channels to follow, by @handle, URL or ID, read through their free public feeds.
+        channels: z.array(z.string()).default([]),
+      })
+      .default({ search: [], channels: [] }),
   }),
   feeds: z.array(feedSchema).default([]),
   watch: z

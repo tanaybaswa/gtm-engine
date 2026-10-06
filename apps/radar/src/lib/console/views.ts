@@ -4,6 +4,7 @@ export const VIEWS = [
   { id: "brief", label: "Brief", hint: "The morning brief" },
   { id: "stream", label: "Stream", hint: "Everything, newest first" },
   { id: "linkedin", label: "LinkedIn", hint: "LinkedIn posts and the people behind them" },
+  { id: "youtube", label: "YouTube", hint: "Videos and the people speaking in them" },
   { id: "people", label: "People", hint: "Who is behind the news" },
   { id: "sources", label: "Sources", hint: "Where stories start" },
   { id: "health", label: "Health", hint: "Runs, sources and spend" },

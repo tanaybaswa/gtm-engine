@@ -26,6 +26,11 @@ export const config = {
   serperApiKey: () => process.env.SERPER_API_KEY,
   serperMonthlyQueries: intEnv("SERPER_MONTHLY_QUERIES", 500),
 
+  // YouTube Data API (a free key): about 100 searches a day per Google project, so Radar stops
+  // a little short of that. Channels are read through their public feeds, which cost nothing.
+  youtubeApiKey: () => process.env.YOUTUBE_API_KEY,
+  youtubeDailySearches: intEnv("YOUTUBE_DAILY_SEARCHES", 90),
+
   // Scheduled runs on Vercel send "Authorization: Bearer <CRON_SECRET>".
   cronSecret: () => process.env.CRON_SECRET,
 

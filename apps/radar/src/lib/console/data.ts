@@ -21,6 +21,7 @@ import { config, localDate, timeZone } from "@/lib/config";
 import { defaultTopics } from "@/lib/topics/defaults";
 import { getTopic, listTopics } from "@/lib/topics/store";
 import { searchResults } from "@/lib/sources/serper-client";
+import { youtubeResults, youtubeSearchesToday } from "@/lib/sources/youtube";
 import { domainOf } from "@/lib/url";
 import { getMonthUsage } from "@/lib/usage";
 import { changedAt, RADAR_TAG } from "./changes";
@@ -43,7 +44,7 @@ import {
 } from "./types";
 
 // Bump when the payload shape changes: cached payloads outlive deployments.
-const PAYLOAD_VERSION = "console-v3";
+const PAYLOAD_VERSION = "console-v4";
 // Cached payloads refresh on their own at least this often, in the background.
 const REVALIDATE_SECONDS = 900;
 const ITEM_DAYS = 30;
@@ -129,7 +130,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
   const since14 = new Date(Date.now() - 15 * 86_400_000);
   const day = sql<string>`to_char((${itemTime} at time zone ${timeZone}), 'YYYY-MM-DD')`;
 
-  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows, profileRows, searches] = await Promise.all([
+  const [itemRows, storyRows, personRows, orgRows, sourceRows, runRows, usage, dailyRows, totalRows, profileRows, searches, videoSearches, ytToday] = await Promise.all([
     db
       .select({ item: items, kind: sources.kind })
       .from(items)
@@ -227,6 +228,8 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       .orderBy(desc(linkedinProfiles.lastSeenAt), desc(linkedinProfiles.id))
       .limit(300),
     searchResults(topicId),
+    youtubeResults(topicId),
+    youtubeSearchesToday(),
   ]);
 
   // Stories: the latest briefs.
@@ -422,7 +425,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       firstSeenAt: p.firstSeenAt.toISOString(),
       lastSeenAt: p.lastSeenAt.toISOString(),
     })),
-    searches,
+    searches: { ...searches, ...videoSearches },
     sources: sourceDTOs,
     runs: runRows.map((r) => toRunDTO(r)),
     spend: {
@@ -430,6 +433,7 @@ async function buildConsoleData(topicId: number): Promise<ConsoleData | null> {
       ai: { enabled: config.aiEnabled(), usd: (usage.ai_cost_microusd ?? 0) / 1_000_000, capUsd: config.aiMonthlyBudgetUsd },
       x: { enabled: Boolean(config.xBearerToken()), usd: (usage.x_cost_microusd ?? 0) / 1_000_000, capUsd: config.xMonthlyBudgetUsd },
       serper: { enabled: Boolean(config.serperApiKey()), queries: usage.serper_queries ?? 0, cap: config.serperMonthlyQueries },
+      youtube: { enabled: Boolean(config.youtubeApiKey()), searchesToday: ytToday, cap: config.youtubeDailySearches },
     },
     daily,
     totals: totalRows[0] ?? { items: 0, scored: 0, relevant: 0, origins: 0 },

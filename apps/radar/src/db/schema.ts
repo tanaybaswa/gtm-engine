@@ -33,6 +33,8 @@ export type QueryOutcome = {
   /** The simpler form Radar ran after the provider refused the original. */
   ranAs?: string;
   error?: string;
+  /** What the search resolved to, such as a YouTube channel's name. */
+  label?: string;
 };
 
 export type ConnectorStat = {
