@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { structuredCall } from "@/lib/ai/client";
+import { assertAiAvailable, structuredCall } from "@/lib/ai/client";
 import { config } from "@/lib/config";
 import { fetchText, mapLimit } from "@/lib/http";
 import { readFeed } from "@/lib/sources/feed";
@@ -112,6 +112,8 @@ export async function compileTopic(input: { name: string; brief: string }): Prom
     };
   }
 
+  // Over this month's Claude budget, this throws and the request says so.
+  await assertAiAvailable();
   const design = await structuredCall({
     system: SYSTEM,
     prompt: `Topic request\nName: ${name}\nWhat to track: ${brief || "(nothing more; infer it from the name)"}`,

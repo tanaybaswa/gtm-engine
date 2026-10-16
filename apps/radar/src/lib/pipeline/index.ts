@@ -1,4 +1,5 @@
 import type { RunStage, RunStats, Topic } from "@/db/schema";
+import { AiBudgetError, AiUnavailableError, assertAiAvailable } from "@/lib/ai/client";
 import { config } from "@/lib/config";
 import { markChanged } from "@/lib/console/changes";
 import { writeBrief } from "./brief";
@@ -38,6 +39,17 @@ async function announce(): Promise<void> {
   }
 }
 
+/** Why this run can't use Claude (no key, or this month's budget is used up), or null if it can. */
+async function aiBlocked(): Promise<string | null> {
+  try {
+    await assertAiAvailable();
+    return null;
+  } catch (error) {
+    if (error instanceof AiUnavailableError || error instanceof AiBudgetError) return error.message;
+    throw error;
+  }
+}
+
 /**
  * Runs one stage (or all of them) for a topic and records it in the runs table.
  * Each stage is safe to repeat: collection dedupes and enrichment only picks up new items.
@@ -51,6 +63,12 @@ export async function runStage(topic: Topic, stage: RunStage, trigger: Trigger, 
   let status: "ok" | "partial" | "error" = "ok";
 
   try {
+    // Claude's monthly budget is checked once, as the run starts. A run that starts under it
+    // finishes even if it goes over on the way; the runs after it skip Claude.
+    if (stage !== "collect") {
+      const blocked = await aiBlocked();
+      if (blocked) stats.aiSkipped = blocked;
+    }
     if (stage === "collect" || stage === "full") {
       progress.update({ phase: "collect", done: 0 });
       const collected = await collectTopic(topic, deadline, log, progress.update);
@@ -75,11 +93,10 @@ export async function runStage(topic: Topic, stage: RunStage, trigger: Trigger, 
         }
       }
     }
-    if ((stage === "enrich" || stage === "full" || stage === "brief") && !deadline.near(30_000)) {
+    if ((stage === "enrich" || stage === "full" || stage === "brief") && !stats.aiSkipped && !deadline.near(30_000)) {
       progress.update({ phase: "score", done: 0 });
       const enriched = await enrichTopic(topic, deadline, log, progress.update);
       Object.assign(stats, { triaged: enriched.triaged, relevant: enriched.relevant, extracted: enriched.extracted });
-      if (enriched.skipped) stats.aiSkipped = enriched.skipped;
       stats.notes!.push(...enriched.notes);
       if (enriched.triaged || enriched.extracted) await announce();
     }

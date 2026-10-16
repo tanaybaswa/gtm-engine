@@ -6,10 +6,11 @@ function intEnv(name: string, fallback: number): number {
 }
 
 export const config = {
-  // Claude: pay as you go; capped per month by RADAR_AI_MONTHLY_BUDGET_USD.
+  // Claude: pay as you go, with a monthly cap in dollars (RADAR_AI_MONTHLY_BUDGET_USD; 0 means
+  // no cap). The cap is checked when a run starts, so a run under way always finishes.
   model: process.env.RADAR_MODEL || "claude-opus-5",
   aiEnabled: () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
-  aiMonthlyBudgetUsd: intEnv("RADAR_AI_MONTHLY_BUDGET_USD", 30),
+  aiMonthlyBudgetUsd: intEnv("RADAR_AI_MONTHLY_BUDGET_USD", 60),
   // Items sent to Claude per enrichment pass, and articles read in full per pass.
   triageBatchSize: intEnv("RADAR_TRIAGE_BATCH", 20),
   maxTriagePerRun: intEnv("RADAR_MAX_TRIAGE_PER_RUN", 160),
