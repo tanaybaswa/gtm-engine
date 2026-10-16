@@ -155,7 +155,7 @@ export function RelevanceMeter({ value, threshold }: { value: number | null; thr
 /** How full a monthly cap is: gray, yellow from three quarters, red with a label from 90%. */
 export const capFill = (pct: number) => (pct >= 90 ? "bg-bad-fill" : pct >= 75 ? "bg-warn-fill" : "bg-fg-3/60");
 
-/** Spend or quota against a cap. Turns yellow, then red with a label, as it nears the cap. */
+/** Spend or quota against a cap (null: no cap). Turns yellow, then red with a label, as it nears the cap. */
 export function Meter({
   label,
   used,
@@ -163,22 +163,25 @@ export function Meter({
   format,
   off,
   daily = false,
+  nearNote,
 }: {
   label: string;
   used: number;
-  cap: number;
+  cap: number | null;
   format: (n: number) => string;
   off?: string;
   daily?: boolean;
+  /** What happens at the cap, when the default wording doesn't fit. */
+  nearNote?: string;
 }) {
-  const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+  const pct = cap && cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
   const near = pct >= 90;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3 text-[13px]">
         <span className="text-fg">{label}</span>
         <span className="font-mono text-[12px] text-fg-2 tabular-nums">
-          {off ? off : `${format(used)} of ${format(cap)}`}
+          {off ? off : cap === null ? `${format(used)}, no cap` : `${format(used)} of ${format(cap)}`}
         </span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
@@ -186,7 +189,7 @@ export function Meter({
       </div>
       {near && !off ? (
         <div className="mt-1 text-[11.5px] text-bad">
-          {daily ? "Near today's cap. Searching stops at the cap and resumes tomorrow." : "Near the monthly cap. Paid calls stop at the cap."}
+          {nearNote ?? (daily ? "Near today's cap. Searching stops at the cap and resumes tomorrow." : "Near the monthly cap. Paid calls stop at the cap.")}
         </div>
       ) : null}
     </div>

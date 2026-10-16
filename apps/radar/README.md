@@ -15,7 +15,7 @@ If a tool reads every free source on a niche market each day and hands us the fe
 - We read it every morning instead of scrolling.
 - At least 7 of the top 10 stories are worth our time.
 - At least one action a week comes from it: a conversation, an intro, a post.
-- It runs on free tiers, plus Claude at under $30 a month.
+- It runs on free tiers, plus Claude, capped at $60 a month by default.
 
 ## How it works
 
@@ -145,7 +145,7 @@ The free plan runs each job once a day and may start it anywhere within the hour
 | Piece | Cost |
 | --- | --- |
 | Vercel, Neon, Google News, feeds, Hacker News, Reddit RSS, GDELT | Free |
-| Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. Radar stops calling Claude at `RADAR_AI_MONTHLY_BUDGET_USD` (default $30). `RADAR_MODEL` switches to a cheaper Claude model. |
+| Claude (`claude-opus-5` by default) | Pay as you go. The first live run (113 items scored, 10 articles read, one brief) cost $0.59, so expect roughly $10 to $20 a month for this topic. `RADAR_AI_MONTHLY_BUDGET_USD` caps the month (default $60; `0` means no cap). Each run checks the cap when it starts: a run that starts under it finishes, even if it goes over on the way, and runs that start after it still collect but skip Claude until next month. A run's work is bounded (up to 160 items scored, 20 articles or videos read and one brief), so it can only go over by a little. `RADAR_MODEL` switches to a cheaper Claude model. |
 | X API (optional) | Pay per use, $0.005 per post read. Radar stops at `X_MONTHLY_BUDGET_USD` (default $10). |
 | YouTube (optional) | Free. A key gives about 100 searches a day; video details cost 1 unit per 50 videos out of 10,000 a day, and followed channels cost nothing. Four topics use about 12 searches a day. |
 | Serper (optional) | 2,500 free searches. One topic's news, LinkedIn and people searches use up to about 450 a month. Radar keeps to `SERPER_MONTHLY_QUERIES` a month (default 500), shared by all topics: with several topics, each search runs every few days instead of daily. Raise the cap to search more often. |
@@ -200,6 +200,7 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 - **LinkedIn titles.** Google shows posts in half a dozen shapes ("Name's Post", "Title | Name", hashtags only, a byline cut short), so a name is only kept when it matches the handle in the link. Matching people by name alone once picked a namesake for the FTC chair, so a match now also needs their organization on the profile.
 - **Stale pages after edits** (Oct 6). Edits marked the cached console stale-while-revalidate, so a page loaded right after one rendered the old data on the server and the new data in the browser, and React threw a hydration error. Edits made in the console now expire the cache at once (`updateTag`); scheduled runs still serve the old payload while a new one builds.
 - **YouTube** (Oct 6). The first collection for AI liability insurance found 19 videos in about a second with three searches and three channels: an AI liability insurance webinar from the Singapore College of Insurance, Alliant on AI exclusions, a Gallagher Re deputy head of insurtech on a podcast, and several explainers of the ISO CG 40 47 exclusion. YouTube search also returns some noise (other languages, adjacent topics), which Claude's scores push down.
+- **Budget stops** (Oct 16). Claude's monthly cap used to be checked before every call, so a run that crossed it stopped halfway: some items scored, others not, and no brief. The cap is now checked once, when a run or a new topic's setup starts, and the default went from $30 to $60 for five topics.
 - **Paywalls and roundups.** Paywalled articles (The Insurer) can't be read in full, so their people only come from the headline. Roundup articles quote big names about unrelated news, which can put them on a story.
 
 ## Next

@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, ne, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { items, people, personMentions, stories, type Topic } from "@/db/schema";
-import { AiBudgetError, AiUnavailableError, structuredCall } from "@/lib/ai/client";
+import { AiUnavailableError, structuredCall } from "@/lib/ai/client";
 import { analystSystemPrompt, briefPrompt } from "@/lib/ai/prompts";
 import { briefSchema } from "@/lib/ai/schemas";
 import { localDate } from "@/lib/config";
@@ -69,7 +69,7 @@ export async function writeBrief(topic: Topic, log: (m: string) => void): Promis
       effort: "medium",
     });
   } catch (error) {
-    if (error instanceof AiUnavailableError || error instanceof AiBudgetError) {
+    if (error instanceof AiUnavailableError) {
       return { stories: 0, notes: [`Brief skipped: ${error.message}`] };
     }
     throw error;

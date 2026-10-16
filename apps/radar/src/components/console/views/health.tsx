@@ -197,9 +197,10 @@ export function HealthView() {
               <Meter
                 label={`Claude (${data.spend.model})`}
                 used={data.spend.ai.usd}
-                cap={data.spend.ai.capUsd}
+                cap={data.spend.ai.capUsd || null}
                 format={usd}
                 off={data.spend.ai.enabled ? undefined : "Off: no API key"}
+                nearNote="Near the monthly cap. A run that starts under it finishes; runs that start after it skip Claude until next month."
               />
               <Meter label="X API" used={data.spend.x.usd} cap={data.spend.x.capUsd} format={usd} off={data.spend.x.enabled ? undefined : "Off: no token"} />
               <Meter

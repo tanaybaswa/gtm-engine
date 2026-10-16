@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { items, type Item, type Topic } from "@/db/schema";
-import { AiBudgetError, AiUnavailableError, assertAiAvailable, structuredCall } from "@/lib/ai/client";
+import { structuredCall } from "@/lib/ai/client";
 import { analystSystemPrompt, extractPrompt, triagePrompt } from "@/lib/ai/prompts";
 import { extractSchema, triageSchema } from "@/lib/ai/schemas";
 import { config } from "@/lib/config";
@@ -11,12 +11,13 @@ import { decodeGoogleNewsUrl, fetchArticle } from "./article";
 import { creditSource, saveEntities } from "./entities";
 import type { Deadline, ProgressUpdate } from "./runs";
 
-export type EnrichResult = { triaged: number; relevant: number; extracted: number; skipped?: string; notes: string[] };
+export type EnrichResult = { triaged: number; relevant: number; extracted: number; notes: string[] };
 
 /**
  * Two passes. Triage scores every new item cheaply from its headline and snippet, and pulls
  * out people and organizations. Extraction then reads the most relevant articles in full to
- * find primary sources and quotes.
+ * find primary sources and quotes. The run checks Claude's budget before this starts, and
+ * nothing here stops for it, so a run that goes over the cap on the way still finishes.
  */
 export async function enrichTopic(
   topic: Topic,
@@ -25,16 +26,6 @@ export async function enrichTopic(
   onProgress: (p: ProgressUpdate) => void = () => {},
 ): Promise<EnrichResult> {
   const result: EnrichResult = { triaged: 0, relevant: 0, extracted: 0, notes: [] };
-  try {
-    await assertAiAvailable();
-  } catch (error) {
-    if (error instanceof AiUnavailableError || error instanceof AiBudgetError) {
-      result.skipped = error.message;
-      return result;
-    }
-    throw error;
-  }
-
   const db = await getDb();
   const system = analystSystemPrompt(topic);
   const threshold = topic.config.relevanceThreshold;
@@ -86,10 +77,6 @@ export async function enrichTopic(
       // Anything Claude skipped goes back in the queue next time.
       if (byId.size) log(`triage: ${byId.size} items were not scored and stay queued`);
     } catch (error) {
-      if (error instanceof AiBudgetError) {
-        result.skipped = error.message;
-        return result;
-      }
       log(`triage batch failed: ${(error as Error).message}`);
       result.notes.push(`A triage batch failed: ${(error as Error).message}`);
     }
@@ -121,10 +108,6 @@ export async function enrichTopic(
       await extractOne(item, system);
       result.extracted += 1;
     } catch (error) {
-      if (error instanceof AiBudgetError) {
-        result.skipped = error.message;
-        break;
-      }
       log(`extract ${item.id}: ${(error as Error).message}`);
       await db.update(items).set({ status: "error", error: (error as Error).message.slice(0, 300) }).where(eq(items.id, item.id));
     }

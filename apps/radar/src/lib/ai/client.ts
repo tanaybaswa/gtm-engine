@@ -32,11 +32,24 @@ export async function aiSpentThisMonthUsd(): Promise<number> {
   return (await getUsage("ai_cost_microusd")) / 1_000_000;
 }
 
-export async function assertAiAvailable(): Promise<void> {
+function assertAiConfigured(): void {
   if (!config.aiEnabled()) throw new AiUnavailableError("add ANTHROPIC_API_KEY to turn on AI enrichment");
+}
+
+/**
+ * Whether new Claude work may start: a key is set and this month's spend is under the cap
+ * (a cap of 0 means none). Runs and topic setup check this once, when they start, so work
+ * that starts under the cap finishes even if it goes over on the way.
+ */
+export async function assertAiAvailable(): Promise<void> {
+  assertAiConfigured();
+  const cap = config.aiMonthlyBudgetUsd;
+  if (!cap) return;
   const spent = await aiSpentThisMonthUsd();
-  if (spent >= config.aiMonthlyBudgetUsd) {
-    throw new AiBudgetError(`monthly AI budget of $${config.aiMonthlyBudgetUsd} reached ($${spent.toFixed(2)} spent)`);
+  if (spent >= cap) {
+    throw new AiBudgetError(
+      `this month's Claude budget of $${cap} is used up ($${spent.toFixed(2)} spent). Claude resumes next month, or raise RADAR_AI_MONTHLY_BUDGET_USD in Vercel (0 means no cap)`,
+    );
   }
 }
 
@@ -61,7 +74,8 @@ async function recordUsage(model: string, usage: Usage): Promise<void> {
 
 /**
  * One structured Claude call: a cached system prompt, a user prompt, and a Zod schema the
- * reply must match. Checks the monthly budget first and records the spend afterwards.
+ * reply must match. Records the spend afterwards. The monthly cap isn't checked here, so a
+ * run that started under it isn't cut off halfway; callers check assertAiAvailable first.
  */
 export async function structuredCall<S extends z.ZodType>(args: {
   system: string;
@@ -70,7 +84,7 @@ export async function structuredCall<S extends z.ZodType>(args: {
   effort: "low" | "medium" | "high";
   maxTokens?: number;
 }): Promise<z.infer<S>> {
-  await assertAiAvailable();
+  assertAiConfigured();
   const model = config.model;
   const response = await getClient().beta.messages.parse({
     model,

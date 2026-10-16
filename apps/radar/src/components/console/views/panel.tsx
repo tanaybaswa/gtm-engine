@@ -40,7 +40,7 @@ function Telemetry({ data }: { data: ConsoleData }) {
       <StatTile
         label="Claude this month"
         value={data.spend.ai.enabled ? usd(data.spend.ai.usd) : "Off"}
-        foot={data.spend.ai.enabled ? `of ${usd(data.spend.ai.capUsd)} cap` : "Add ANTHROPIC_API_KEY"}
+        foot={!data.spend.ai.enabled ? "Add ANTHROPIC_API_KEY" : data.spend.ai.capUsd ? `of ${usd(data.spend.ai.capUsd)} cap` : "No monthly cap"}
       >
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-line">
           <div className={`h-full rounded-full ${capFill(spendPct)}`} style={{ width: `${spendPct}%` }} />
